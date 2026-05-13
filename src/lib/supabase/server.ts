@@ -1,11 +1,16 @@
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/database.types";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
-export async function createSupabaseServerClient() {
+// `@supabase/ssr` 0.5 has a type-inference bug where `createServerClient<Database>`
+// does not propagate `Database` into the returned client's mutation methods, so
+// `.upsert(row)` and friends type-check against `never`. Casting to
+// `SupabaseClient<Database>` from `@supabase/supabase-js` restores typing.
+export async function createSupabaseServerClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
@@ -28,5 +33,5 @@ export async function createSupabaseServerClient() {
         },
       },
     },
-  );
+  ) as unknown as SupabaseClient<Database>;
 }
