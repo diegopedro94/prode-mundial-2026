@@ -40,10 +40,9 @@ type SeedMatch = {
   scheduled_at: string;
 };
 
-function parseGroupRound(round: string): string | null {
-  // api-football rounds for the group stage look like "Group A - 1".
-  const match = /^Group\s+([A-L])/i.exec(round);
-  return match?.[1]?.toUpperCase() ?? null;
+function isGroupStageRound(round: string): boolean {
+  // api-football labels them "Group Stage - 1/2/3" (no letter — derive from teams).
+  return /^Group\s+Stage\b/i.test(round);
 }
 
 function quoteSql(value: string | null) {
@@ -76,14 +75,16 @@ async function main() {
   console.log("Loading teams from DB...");
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
-    .select("id, external_id, name");
+    .select("id, external_id, name, group_letter");
   if (teamsError) throw teamsError;
   if (!teams || teams.length === 0) {
     throw new Error("No teams in DB. Run `npm run seed:teams` first.");
   }
-  const externalToInternal = new Map<number, number>();
+  const externalToInternal = new Map<number, { id: number; group: string | null }>();
   for (const t of teams) {
-    if (t.external_id != null) externalToInternal.set(t.external_id, t.id);
+    if (t.external_id != null) {
+      externalToInternal.set(t.external_id, { id: t.id, group: t.group_letter });
+    }
   }
   console.log(`  -> ${externalToInternal.size} teams indexed`);
 
@@ -91,25 +92,29 @@ async function main() {
   const fixtures = await fetchFixtures(apiKey);
   console.log(`  -> ${fixtures.length} fixtures total`);
 
-  const groupFixtures = fixtures.filter((f) => parseGroupRound(f.league.round));
+  const groupFixtures = fixtures.filter((f) => isGroupStageRound(f.league.round));
   console.log(`  -> ${groupFixtures.length} group-stage fixtures`);
 
   const seeds: SeedMatch[] = [];
   const skipped: Array<{ id: number; reason: string }> = [];
   for (const f of groupFixtures) {
-    const group = parseGroupRound(f.league.round);
     const home = externalToInternal.get(f.teams.home.id);
     const away = externalToInternal.get(f.teams.away.id);
-    if (!group || !home || !away) {
-      skipped.push({ id: f.fixture.id, reason: !group ? "no group" : "team missing" });
+    if (!home || !away) {
+      skipped.push({ id: f.fixture.id, reason: "team missing" });
+      continue;
+    }
+    const group = home.group ?? away.group;
+    if (!group) {
+      skipped.push({ id: f.fixture.id, reason: "no group on either team" });
       continue;
     }
     seeds.push({
       external_id: f.fixture.id,
       stage: "group",
       group_letter: group,
-      home_team_id: home,
-      away_team_id: away,
+      home_team_id: home.id,
+      away_team_id: away.id,
       scheduled_at: f.fixture.date,
     });
   }

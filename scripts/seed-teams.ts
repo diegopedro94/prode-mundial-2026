@@ -26,6 +26,16 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 const LEAGUE_WORLD_CUP = 1;
 const SEASON = 2026;
 
+// api-football mis-codes (or omits) FIFA codes for a few teams. Override by
+// their api-football team id so the upsert on `fifa_code` (UNIQUE) doesn't
+// collide. Codes are FIFA's official 3-letter abbreviations.
+const FIFA_CODE_OVERRIDES: Record<number, string> = {
+  775: "AUT", // Austria (api-football returns AUS, colliding with Australia)
+  22: "IRN", // Iran (api-football returns IRA, colliding with Iraq)
+  1567: "IRQ", // Iraq (api-football returns IRA)
+  5530: "CUW", // Curaçao (api-football returns null)
+};
+
 type SeedTeam = {
   external_id: number;
   name: string;
@@ -47,12 +57,15 @@ function buildGroupIndex(standingsGroups: ApiFootballStanding[][]) {
 }
 
 function toSeed(team: ApiFootballTeam, group: string | null): SeedTeam {
+  const override = FIFA_CODE_OVERRIDES[team.team.id];
+  const fifaCode =
+    override ??
+    team.team.code?.toUpperCase() ??
+    team.team.name.replace(/[^A-Z]/gi, "").slice(0, 3).toUpperCase();
   return {
     external_id: team.team.id,
     name: team.team.name,
-    fifa_code:
-      team.team.code?.toUpperCase() ??
-      team.team.name.replace(/[^A-Z]/gi, "").slice(0, 3).toUpperCase(),
+    fifa_code: fifaCode,
     group_letter: group,
     flag_url: team.team.logo,
   };
