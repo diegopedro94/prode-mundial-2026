@@ -102,6 +102,33 @@ export async function upsertAllowedEmail(
   return { ok: true };
 }
 
+export async function lockAllRosters(): Promise<ActionResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "No hay sesión" };
+
+  const { error, count } = await supabase
+    .from("players")
+    .update({ is_in_official_roster: true }, { count: "exact" })
+    .neq("is_in_official_roster", true);
+  if (error) return { ok: false, error: error.message };
+
+  // Stamp the audit log so it's visible in /admin/audit who locked.
+  await supabase.from("audit_log").insert({
+    actor_id: user.id,
+    action: "rosters.lock",
+    entity: "players",
+    entity_id: null,
+    before: null,
+    after: { locked_count: count ?? null },
+  });
+
+  revalidatePath("/admin/rosters");
+  return { ok: true };
+}
+
 export async function removeAllowedEmail(email: string): Promise<ActionResult> {
   const supabase = await createSupabaseServerClient();
   const {

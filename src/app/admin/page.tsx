@@ -17,7 +17,7 @@ const tiles = [
     title: "Lock rosters",
     description: "Congelar la lista oficial de jugadores para especiales.",
     href: "/admin/rosters",
-    available: false,
+    available: true,
   },
   {
     title: "Whitelist de emails",

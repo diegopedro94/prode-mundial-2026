@@ -17,6 +17,7 @@
     "db:types": "supabase gen types typescript --local 2>/dev/null > src/lib/database.types.ts",
     "seed:teams": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-teams.ts",
     "seed:fixtures": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-fixtures.ts",
+    "seed:players": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-players.ts",
     "sync:results": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/sync-results.ts"
   },
   "dependencies": {
