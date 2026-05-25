@@ -389,6 +389,39 @@ export type Database = {
           },
         ]
       }
+      sync_log: {
+        Row: {
+          error_message: string | null
+          finished_at: string | null
+          fixtures_processed: number
+          fixtures_updated: number
+          id: number
+          requests_remaining: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          error_message?: string | null
+          finished_at?: string | null
+          fixtures_processed?: number
+          fixtures_updated?: number
+          id?: number
+          requests_remaining?: number | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          error_message?: string | null
+          finished_at?: string | null
+          fixtures_processed?: number
+          fixtures_updated?: number
+          id?: number
+          requests_remaining?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       teams: {
         Row: {
           external_id: number | null

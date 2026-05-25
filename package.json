@@ -16,7 +16,8 @@
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local 2>/dev/null > src/lib/database.types.ts",
     "seed:teams": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-teams.ts",
-    "seed:fixtures": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-fixtures.ts"
+    "seed:fixtures": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-fixtures.ts",
+    "sync:results": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/sync-results.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

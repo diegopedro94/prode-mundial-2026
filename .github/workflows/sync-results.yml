@@ -1,0 +1,39 @@
+name: Sync results
+
+# Polls api-football every 5 minutes during the WC window.
+# The script itself early-exits when no match is scheduled for the current day,
+# so off-day runs don't burn api-football quota.
+
+on:
+  schedule:
+    # GHA cron doesn't honor date ranges across months, so we list June and July separately.
+    - cron: "*/5 * 10-30 6 *" # June 10-30
+    - cron: "*/5 * 1-20 7 *" # July 1-20
+  workflow_dispatch:
+    inputs:
+      override_date:
+        description: "YYYY-MM-DD to force the script to sync a specific day (for testing)"
+        required: false
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: sync-results
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci --no-audit --no-fund
+      - name: Run sync
+        run: npx tsx --tsconfig=tsconfig.scripts.json scripts/sync-results.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          SYNC_OVERRIDE_DATE: ${{ inputs.override_date }}
