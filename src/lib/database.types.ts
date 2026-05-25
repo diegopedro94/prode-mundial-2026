@@ -461,6 +461,18 @@ export type Database = {
         }
         Returns: number
       }
+      get_leaderboard: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          display_name: string
+          avatar_url: string
+          total_points: number
+          exact_count: number
+          scored_count: number
+          predictions_count: number
+        }[]
+      }
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
