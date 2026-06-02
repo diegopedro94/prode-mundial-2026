@@ -52,13 +52,20 @@ export function GroupsBoard({ groups, isLocked, lockAt }: Props) {
 
   const activeGroup = groups.find((g) => g.letter === activeLetter) ?? groups[0];
 
-  // Auto-scroll the active pill into view when it changes.
+  // Auto-center the active pill within the strip. We do the math manually
+  // because `Element.scrollIntoView` bubbles to ancestor scrollers and was
+  // pulling the whole page sideways on mobile.
   const stripRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = stripRef.current?.querySelector<HTMLButtonElement>(
+    const strip = stripRef.current;
+    if (!strip) return;
+    const el = strip.querySelector<HTMLButtonElement>(
       `[data-group="${activeLetter}"]`,
     );
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    if (!el) return;
+    const target =
+      el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2;
+    strip.scrollTo({ left: target, behavior: "smooth" });
   }, [activeLetter]);
 
   return (

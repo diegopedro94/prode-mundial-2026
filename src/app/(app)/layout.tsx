@@ -26,19 +26,39 @@ export default async function AppLayout({
     .maybeSingle<{ display_name: string; avatar_url: string | null; is_admin: boolean }>();
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-full flex-1 flex-col overflow-x-hidden">
       <header className="sticky top-0 z-30 border-b border-border/80 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        {/* Row 1: brand + user controls (avatar + Salir). Always one line. */}
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
           <Link
             href="/"
-            className="flex items-center gap-2 font-display text-base font-bold tracking-tight transition active:scale-[0.97]"
+            className="flex min-w-0 items-center gap-2 font-display text-base font-bold tracking-tight transition active:scale-[0.97]"
           >
-            <SoccerBall className="h-6 w-6 text-primary" />
-            <span className="hidden sm:inline">Prode Mundial 2026</span>
-            <span className="sm:hidden">Prode 2026</span>
+            <SoccerBall className="h-6 w-6 shrink-0 text-primary" />
+            <span className="hidden truncate sm:inline">Prode Mundial 2026</span>
+            <span className="truncate sm:hidden">Prode 2026</span>
           </Link>
 
-          <nav className="flex items-center gap-1 text-sm">
+          <div className="flex shrink-0 items-center gap-2">
+            <UserChip
+              name={profile?.display_name ?? "—"}
+              avatarUrl={profile?.avatar_url ?? null}
+            />
+            <form action="/auth/sign-out" method="post">
+              <button
+                type="submit"
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition active:scale-[0.96] hover:bg-muted hover:text-foreground"
+                title="Cerrar sesión"
+              >
+                Salir
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Row 2: tab nav. Scrollable on narrow screens, no scrollbar shown. */}
+        <div className="border-t border-border/40">
+          <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-2 text-sm sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <NavLink href="/predict/groups">Grupos</NavLink>
             <NavLink href="/predict/special">Especiales</NavLink>
             <NavLink href="/leaderboard">Tabla</NavLink>
@@ -49,22 +69,6 @@ export default async function AppLayout({
               </NavLink>
             ) : null}
           </nav>
-
-          <div className="flex items-center gap-2">
-            <UserChip
-              name={profile?.display_name ?? "—"}
-              avatarUrl={profile?.avatar_url ?? null}
-            />
-            <form action="/auth/sign-out" method="post">
-              <button
-                type="submit"
-                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                title="Cerrar sesión"
-              >
-                Salir
-              </button>
-            </form>
-          </div>
         </div>
       </header>
 
