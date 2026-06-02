@@ -1,3 +1,5 @@
+import { Sparkles, Target, Trophy, TrendingUp, Calendar } from "lucide-react";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Row = {
@@ -52,7 +54,9 @@ export default async function MePage() {
     .eq("user_id", userId);
   const rows = (predsData ?? []) as unknown as Row[];
 
-  const valid = rows.filter((r): r is Row & { match: NonNullable<Row["match"]> } => r.match !== null);
+  const valid = rows.filter(
+    (r): r is Row & { match: NonNullable<Row["match"]> } => r.match !== null,
+  );
 
   const finished = valid.filter((r) => r.match.status === "finished");
   const totalPoints = finished.reduce((acc, r) => acc + (r.points ?? 0), 0);
@@ -63,7 +67,6 @@ export default async function MePage() {
   const scoredCount = finished.filter((r) => (r.points ?? 0) > 0).length;
   const exactPct = finished.length === 0 ? 0 : (exactCount / finished.length) * 100;
 
-  // Best/worst day (sum of points per local date, considering only finished matches).
   const byDate = new Map<string, number>();
   for (const r of finished) {
     const key = localDate(r.match.scheduled_at);
@@ -75,84 +78,154 @@ export default async function MePage() {
 
   return (
     <section className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Mi prode — {displayName}</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Tus n&uacute;meros del Mundial 2026.
-        </p>
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Mi prode
+        </h1>
+        <p className="text-sm text-muted-foreground">{displayName}</p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Puntos totales" value={String(totalPoints)} />
-        <Stat label="Predicciones cargadas" value={`${valid.length} / 104`} />
-        <Stat label="Scores exactos" value={String(exactCount)} />
         <Stat
+          icon={<Trophy className="h-4 w-4" />}
+          label="Puntos totales"
+          value={String(totalPoints)}
+          accent="text-amber-600 dark:text-amber-400"
+        />
+        <Stat
+          icon={<Calendar className="h-4 w-4" />}
+          label="Predicciones"
+          value={`${valid.length}`}
+          hint={`de 104 partidos`}
+          accent="text-blue-600 dark:text-blue-400"
+        />
+        <Stat
+          icon={<Target className="h-4 w-4" />}
+          label="Scores exactos"
+          value={String(exactCount)}
+          accent="text-rose-600 dark:text-rose-400"
+        />
+        <Stat
+          icon={<TrendingUp className="h-4 w-4" />}
           label="% aciertos"
           value={finished.length === 0 ? "—" : `${exactPct.toFixed(1)}%`}
-          hint={`${exactCount} de ${finished.length} finalizados`}
+          hint={`${scoredCount} acertados / ${finished.length} jugados`}
+          accent="text-emerald-600 dark:text-emerald-400"
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DayList title="Mejores jornadas" days={bestDays} emptyLabel="Sin partidos jugados todavía." />
-        <DayList title="Peores jornadas" days={worstDays} emptyLabel="Sin partidos jugados todavía." />
-      </div>
-
-      <details className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <summary className="cursor-pointer text-sm font-medium">
-          Tus predicciones ({finished.length} finalizadas, {scoredCount} con puntos)
-        </summary>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wider text-zinc-500">
-              <tr>
-                <th className="px-2 py-1">Fecha</th>
-                <th className="px-2 py-1">Partido</th>
-                <th className="px-2 py-1 text-center">Tu</th>
-                <th className="px-2 py-1 text-center">Real</th>
-                <th className="px-2 py-1 text-right">Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {finished
-                .sort(
-                  (a, b) =>
-                    new Date(b.match.scheduled_at).getTime() -
-                    new Date(a.match.scheduled_at).getTime(),
-                )
-                .map((r) => (
-                  <tr key={r.match_id} className="border-t border-zinc-200 dark:border-zinc-800">
-                    <td className="px-2 py-1 font-mono text-xs text-zinc-500">
-                      {localDate(r.match.scheduled_at)}
-                    </td>
-                    <td className="px-2 py-1 text-xs">
-                      {r.match.home_team?.fifa_code} vs {r.match.away_team?.fifa_code}
-                    </td>
-                    <td className="px-2 py-1 text-center font-mono">
-                      {r.home_score}-{r.away_score}
-                    </td>
-                    <td className="px-2 py-1 text-center font-mono">
-                      {r.match.home_score}-{r.match.away_score}
-                    </td>
-                    <td className="px-2 py-1 text-right font-mono font-semibold">
-                      {r.points ?? 0}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+      {finished.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-8 text-center">
+          <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            Las estadísticas aparecen cuando empiezan a jugarse partidos.
+          </p>
         </div>
-      </details>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DayList
+            title="Mejores jornadas"
+            days={bestDays}
+            accent="emerald"
+          />
+          <DayList
+            title="Peores jornadas"
+            days={worstDays}
+            accent="zinc"
+          />
+        </div>
+      )}
+
+      {valid.length > 0 ? (
+        <details className="rounded-2xl border border-border bg-card">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+            <div className="flex items-center justify-between">
+              <span>Tus predicciones</span>
+              <span className="text-xs text-muted-foreground">
+                {finished.length} finalizadas · {scoredCount} con puntos
+              </span>
+            </div>
+          </summary>
+          <div className="border-t border-border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Fecha</th>
+                  <th className="px-3 py-2">Partido</th>
+                  <th className="px-3 py-2 text-center">Tu</th>
+                  <th className="px-3 py-2 text-center">Real</th>
+                  <th className="px-3 py-2 text-right">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {finished
+                  .sort(
+                    (a, b) =>
+                      new Date(b.match.scheduled_at).getTime() -
+                      new Date(a.match.scheduled_at).getTime(),
+                  )
+                  .map((r) => {
+                    const isExact =
+                      r.home_score === r.match.home_score &&
+                      r.away_score === r.match.away_score;
+                    return (
+                      <tr
+                        key={r.match_id}
+                        className="border-t border-border"
+                      >
+                        <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                          {localDate(r.match.scheduled_at)}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {r.match.home_team?.fifa_code} vs{" "}
+                          {r.match.away_team?.fifa_code}
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono">
+                          {r.home_score}-{r.away_score}
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono">
+                          {r.match.home_score}-{r.match.away_score}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <PointsBadge value={r.points ?? 0} exact={isExact} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Stat({
+  icon,
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+  accent: string;
+}) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="text-xs uppercase tracking-wider text-zinc-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-      {hint ? <div className="mt-0.5 text-xs text-zinc-500">{hint}</div> : null}
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg bg-muted ${accent}`}>
+          {icon}
+        </span>
+      </div>
+      <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
+      {hint ? <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div> : null}
     </div>
   );
 }
@@ -160,27 +233,52 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function DayList({
   title,
   days,
-  emptyLabel,
+  accent,
 }: {
   title: string;
   days: [string, number][];
-  emptyLabel: string;
+  accent: "emerald" | "zinc";
 }) {
+  const tints = {
+    emerald: "text-emerald-600 dark:text-emerald-400",
+    zinc: "text-muted-foreground",
+  };
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="text-sm font-medium">{title}</div>
-      {days.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500">{emptyLabel}</p>
-      ) : (
-        <ul className="mt-2 space-y-1 text-sm">
-          {days.map(([date, points]) => (
-            <li key={date} className="flex items-center justify-between">
-              <span>{date}</span>
-              <span className="font-mono font-semibold">{points} pts</span>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="text-sm font-semibold">{title}</div>
+      <ul className="mt-3 space-y-2 text-sm">
+        {days.map(([date, points]) => (
+          <li key={date} className="flex items-center justify-between">
+            <span className="capitalize">{date}</span>
+            <span className={`font-mono font-semibold tabular-nums ${tints[accent]}`}>
+              {points} pts
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
+  );
+}
+
+function PointsBadge({ value, exact }: { value: number; exact: boolean }) {
+  if (exact) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+        <Sparkles className="h-3 w-3" />
+        {value}
+      </span>
+    );
+  }
+  if (value > 0) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        {value}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      0
+    </span>
   );
 }

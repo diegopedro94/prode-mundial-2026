@@ -19,10 +19,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-export type ComboboxOption = { value: string; label: string };
+export type ComboboxOption = {
+  value: string;
+  label: string;
+  /** Concatenated against `label` for the case-insensitive search index. */
+  searchText?: string;
+};
 
-type Props = {
-  options: ComboboxOption[];
+type Props<T extends ComboboxOption> = {
+  options: T[];
   value: string | null;
   onChange: (value: string | null) => void;
   placeholder?: string;
@@ -30,9 +35,13 @@ type Props = {
   emptyLabel?: string;
   disabled?: boolean;
   className?: string;
+  /** Custom rendering of each option row. Defaults to the option label. */
+  renderOption?: (option: T, opts: { selected: boolean }) => React.ReactNode;
+  /** Custom rendering of the closed-trigger label (when a value is set). */
+  renderValue?: (option: T) => React.ReactNode;
 };
 
-export function Combobox({
+export function Combobox<T extends ComboboxOption>({
   options,
   value,
   onChange,
@@ -41,9 +50,11 @@ export function Combobox({
   emptyLabel = "Sin resultados",
   disabled = false,
   className,
-}: Props) {
+  renderOption,
+  renderValue,
+}: Props<T>) {
   const [open, setOpen] = React.useState(false);
-  const selected = options.find((o) => o.value === value);
+  const selected = options.find((o) => o.value === value) ?? null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -51,39 +62,57 @@ export function Combobox({
         disabled={disabled}
         className={cn(
           buttonVariants({ variant: "outline", size: "lg" }),
-          "w-full justify-between",
+          "w-full justify-between h-12 px-3",
           className,
         )}
       >
-        <span className={cn(!selected && "text-muted-foreground")}>
-          {selected?.label ?? placeholder}
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-left",
+            !selected && "text-muted-foreground",
+          )}
+        >
+          {selected ? (renderValue ? renderValue(selected) : selected.label) : placeholder}
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+        align="start"
+      >
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-[280px]">
             <CommandEmpty>{emptyLabel}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.label}
-                  onSelect={() => {
-                    onChange(option.value === value ? null : option.value);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      option.value === value ? "opacity-100" : "opacity-0",
+              {options.map((option) => {
+                const isSelected = option.value === value;
+                return (
+                  <CommandItem
+                    key={option.value}
+                    value={`${option.label} ${option.searchText ?? ""}`}
+                    onSelect={() => {
+                      onChange(isSelected ? null : option.value);
+                      setOpen(false);
+                    }}
+                    className="gap-2"
+                  >
+                    {renderOption ? (
+                      renderOption(option, { selected: isSelected })
+                    ) : (
+                      <>
+                        <Check
+                          className={cn(
+                            "h-4 w-4",
+                            isSelected ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <span>{option.label}</span>
+                      </>
                     )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

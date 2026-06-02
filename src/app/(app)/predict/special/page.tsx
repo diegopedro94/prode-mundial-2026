@@ -2,8 +2,21 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { SpecialForm } from "./special-form";
 
-type TeamRow = { id: number; name: string; fifa_code: string };
-type PlayerRow = { id: number; name: string };
+type TeamRow = {
+  id: number;
+  name: string;
+  fifa_code: string;
+  flag_url: string | null;
+};
+
+type PlayerRow = {
+  id: number;
+  name: string;
+  position: "GK" | "DEF" | "MID" | "FWD" | null;
+  jersey_number: number | null;
+  team: { fifa_code: string; flag_url: string | null } | null;
+};
+
 type SpecialRow = {
   champion_team_id: number | null;
   runner_up_team_id: number | null;
@@ -11,6 +24,7 @@ type SpecialRow = {
   mvp_player_id: number | null;
   best_gk_player_id: number | null;
 };
+
 type RoundRow = { locks_at: string };
 
 export default async function PredictSpecialPage() {
@@ -21,10 +35,13 @@ export default async function PredictSpecialPage() {
   const userId = user!.id;
 
   const [teamsRes, playersRes, specialRes, roundRes] = await Promise.all([
-    supabase.from("teams").select("id, name, fifa_code").order("name"),
+    supabase.from("teams").select("id, name, fifa_code, flag_url").order("name"),
     supabase
       .from("players")
-      .select("id, name")
+      .select(
+        `id, name, position, jersey_number,
+         team:teams!team_id(fifa_code, flag_url)`,
+      )
       .eq("is_in_official_roster", true)
       .order("name"),
     supabase
@@ -34,7 +51,6 @@ export default async function PredictSpecialPage() {
       )
       .eq("user_id", userId)
       .maybeSingle<SpecialRow>(),
-    // Specials use the group lock — they freeze when the WC kicks off.
     supabase
       .from("rounds")
       .select("locks_at")
@@ -43,7 +59,7 @@ export default async function PredictSpecialPage() {
   ]);
 
   const teams = (teamsRes.data ?? []) as TeamRow[];
-  const players = (playersRes.data ?? []) as PlayerRow[];
+  const players = (playersRes.data ?? []) as unknown as PlayerRow[];
   const initial = specialRes.data ?? null;
   const lockAt = roundRes.data?.locks_at ?? null;
   const isLocked = lockAt ? new Date(lockAt) <= new Date() : false;

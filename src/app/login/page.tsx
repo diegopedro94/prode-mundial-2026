@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { LoginButton } from "@/app/login/login-button";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; next?: string }>;
+}) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -13,16 +17,40 @@ export default async function LoginPage() {
     redirect("/");
   }
 
+  const { error } = await searchParams;
+
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Prode Mundial 2026</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Ingres&aacute; con tu cuenta de Google. Solo emails autorizados.
+    <main className="relative flex flex-1 flex-col items-center justify-center px-6">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-1/2 top-0 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-card p-8 shadow-sm">
+        <div className="flex flex-col items-center text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 text-xl font-bold text-primary-foreground shadow-md shadow-primary/30">
+            26
+          </div>
+          <h1 className="mt-4 text-xl font-semibold tracking-tight">
+            Prode Mundial 2026
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Solo emails autorizados. Pedile al admin que te agregue si todav&iacute;a no
+            est&aacute;s.
           </p>
         </div>
+
+        {error ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        ) : null}
+
         <LoginButton />
+
+        <p className="text-center text-xs text-muted-foreground">
+          Al ingresar acept&aacute;s que tu nombre p&uacute;blico aparezca en el
+          leaderboard del grupo.
+        </p>
       </div>
     </main>
   );
