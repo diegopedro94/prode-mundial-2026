@@ -13,8 +13,8 @@ type DbMatch = {
   went_to_penalties: boolean;
   pk_winner_team_id: number | null;
   winner_team_id: number | null;
-  home_team: { id: number; name: string; fifa_code: string } | null;
-  away_team: { id: number; name: string; fifa_code: string } | null;
+  home_team: { id: number; name: string; fifa_code: string; flag_url: string | null } | null;
+  away_team: { id: number; name: string; fifa_code: string; flag_url: string | null } | null;
 };
 
 const ARG_TZ = "America/Argentina/Buenos_Aires";
@@ -35,14 +35,13 @@ export default async function AdminMatchesPage() {
     .select(
       `id, stage, group_letter, scheduled_at, status, home_score, away_score,
        went_to_penalties, pk_winner_team_id, winner_team_id,
-       home_team:home_team_id(id, name, fifa_code),
-       away_team:away_team_id(id, name, fifa_code)`,
+       home_team:home_team_id(id, name, fifa_code, flag_url),
+       away_team:away_team_id(id, name, fifa_code, flag_url)`,
     )
     .order("scheduled_at");
 
   const matches = (data ?? []) as unknown as DbMatch[];
 
-  // Group by local date.
   const byDate = new Map<string, DbMatch[]>();
   for (const m of matches) {
     const key = localDateKey(m.scheduled_at);
@@ -53,21 +52,25 @@ export default async function AdminMatchesPage() {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Partidos</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Partidos
+        </h1>
+        <p className="text-sm text-muted-foreground">
           Carga manual de resultados. El sync con api-football corre en paralelo;
           la última escritura gana. Cada cambio queda en el audit log.
         </p>
       </header>
 
       {byDate.size === 0 ? (
-        <p className="text-sm text-zinc-500">No hay partidos cargados todavía.</p>
+        <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-8 text-center text-sm text-muted-foreground">
+          No hay partidos cargados todavía.
+        </div>
       ) : null}
 
       {[...byDate.entries()].map(([date, matches]) => (
         <div key={date} className="space-y-3">
-          <h2 className="sticky top-0 z-10 bg-zinc-50/80 py-2 text-sm font-medium uppercase tracking-wider text-zinc-500 backdrop-blur dark:bg-zinc-950/80">
+          <h2 className="sticky top-[88px] z-10 bg-background/80 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
             {date}
           </h2>
           <div className="space-y-2">

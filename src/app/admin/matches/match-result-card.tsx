@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Save } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
 import { setMatchResult } from "@/lib/admin/actions";
 
 type Team = { id: number; name: string; fifa_code: string };
@@ -18,8 +18,8 @@ export type MatchRow = {
   wentToPenalties: boolean;
   pkWinnerTeamId: number | null;
   winnerTeamId: number | null;
-  homeTeam: Team;
-  awayTeam: Team;
+  homeTeam: Team & { flag_url?: string | null };
+  awayTeam: Team & { flag_url?: string | null };
 };
 
 const STAGE_LABEL: Record<MatchRow["stage"], string> = {
@@ -89,51 +89,53 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
   });
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="mb-3 flex items-center justify-between text-xs text-zinc-500">
-        <span>
-          {kickoff} &middot; {STAGE_LABEL[match.stage]}
-          {match.groupLetter ? ` ${match.groupLetter}` : ""}
-        </span>
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-3 py-1.5 text-[11px] font-medium">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <span className="tabular-nums">{kickoff}</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            {STAGE_LABEL[match.stage]}
+            {match.groupLetter ? ` ${match.groupLetter}` : ""}
+          </span>
+        </div>
         <StatusPill status={status} />
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <div className="text-right text-sm font-medium">{match.homeTeam.name}</div>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-3 sm:gap-4 sm:px-4">
+        <TeamSide team={match.homeTeam} side="home" />
+
         <div className="flex items-center gap-1">
-          <Input
-            type="number"
-            min={0}
-            max={20}
+          <ScoreInput
             value={home}
-            onChange={(e) => setHome(e.target.value)}
-            className="h-9 w-12 text-center"
+            onChange={setHome}
             disabled={isPending}
-            aria-label={`Goles de ${match.homeTeam.name}`}
+            label={`Goles de ${match.homeTeam.name}`}
           />
-          <span className="text-zinc-400">—</span>
-          <Input
-            type="number"
-            min={0}
-            max={20}
+          <span className="text-muted-foreground" aria-hidden="true">
+            –
+          </span>
+          <ScoreInput
             value={away}
-            onChange={(e) => setAway(e.target.value)}
-            className="h-9 w-12 text-center"
+            onChange={setAway}
             disabled={isPending}
-            aria-label={`Goles de ${match.awayTeam.name}`}
+            label={`Goles de ${match.awayTeam.name}`}
           />
         </div>
-        <div className="text-sm font-medium">{match.awayTeam.name}</div>
+
+        <TeamSide team={match.awayTeam} side="away" />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-muted/20 px-3 py-2 text-xs sm:px-4">
         <label className="flex items-center gap-1.5">
-          <span className="text-xs uppercase tracking-wider text-zinc-500">Estado</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Estado
+          </span>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as MatchRow["status"])}
             disabled={isPending}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs"
           >
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -154,15 +156,16 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
                   if (!e.target.checked) setPkWinner(null);
                 }}
                 disabled={isPending}
+                className="accent-primary"
               />
-              <span className="text-xs uppercase tracking-wider text-zinc-500">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 Fue a penales
               </span>
             </label>
             {pens ? (
               <label className="flex items-center gap-1.5">
-                <span className="text-xs uppercase tracking-wider text-zinc-500">
-                  Gan&oacute; penales
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Ganador penales
                 </span>
                 <select
                   value={pkWinner ?? ""}
@@ -170,7 +173,7 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
                     setPkWinner(e.target.value === "" ? null : Number(e.target.value))
                   }
                   disabled={isPending}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  className="rounded-md border border-border bg-background px-2 py-1 text-xs"
                 >
                   <option value="">—</option>
                   <option value={match.homeTeam.id}>{match.homeTeam.fifa_code}</option>
@@ -181,42 +184,119 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
           </>
         ) : null}
 
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isPending}
-          className="ml-auto rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          {isPending ? "Guardando..." : "Guardar"}
-        </button>
-
-        {saved ? (
-          <span className="text-sm text-emerald-600 dark:text-emerald-400">
-            Guardado &#10003;
-          </span>
-        ) : null}
-        {error ? (
-          <span className="text-sm text-red-600 dark:text-red-400" title={error}>
-            {error}
-          </span>
-        ) : null}
+        <div className="ml-auto flex items-center gap-2">
+          {saved ? (
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              guardado
+            </span>
+          ) : null}
+          {error ? (
+            <span
+              className="text-destructive"
+              title={error}
+            >
+              error
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {isPending ? "Guardando..." : "Guardar"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
+function TeamSide({
+  team,
+  side,
+}: {
+  team: Team & { flag_url?: string | null };
+  side: "home" | "away";
+}) {
+  const isHome = side === "home";
+  return (
+    <div
+      className={`flex items-center gap-2 ${isHome ? "flex-row-reverse text-right" : ""}`}
+    >
+      <Flag flagUrl={team.flag_url ?? null} />
+      <div className="min-w-0">
+        <div className="truncate text-sm font-semibold leading-tight">
+          {team.name}
+        </div>
+        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          {team.fifa_code}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Flag({ flagUrl }: { flagUrl: string | null }) {
+  if (!flagUrl) {
+    return (
+      <div className="h-7 w-10 shrink-0 rounded-sm bg-muted" aria-hidden="true" />
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={flagUrl}
+      alt=""
+      className="h-7 w-10 shrink-0 rounded-sm object-cover shadow-sm ring-1 ring-foreground/10"
+      width={40}
+      height={28}
+      loading="lazy"
+    />
+  );
+}
+
+function ScoreInput({
+  value,
+  onChange,
+  disabled,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  label: string;
+}) {
+  return (
+    <input
+      type="number"
+      min={0}
+      max={20}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      aria-label={label}
+      placeholder="–"
+      className="h-10 w-12 rounded-lg border border-border bg-background text-center text-lg font-semibold tabular-nums shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 sm:w-14"
+    />
+  );
+}
+
 function StatusPill({ status }: { status: MatchRow["status"] }) {
   const styles: Record<MatchRow["status"], string> = {
-    scheduled:
-      "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-    live: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
+    scheduled: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+    live:
+      "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
     finished:
       "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
   };
   const labels: Record<MatchRow["status"], string> = {
-    scheduled: "Programado",
-    live: "En curso",
-    finished: "Finalizado",
+    scheduled: "programado",
+    live: "en curso",
+    finished: "finalizado",
   };
   return (
     <span
