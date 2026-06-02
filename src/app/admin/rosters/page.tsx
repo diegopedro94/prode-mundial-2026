@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { teamName } from "@/lib/teams/i18n";
 
 import { LockRostersButton } from "./lock-rosters-button";
 
@@ -74,7 +75,7 @@ export default async function AdminRostersPage() {
               return (
                 <tr key={t.id} className="border-t border-border">
                   <td className="px-3 py-2 font-medium">
-                    {t.name}{" "}
+                    {teamName(t.fifa_code, t.name)}{" "}
                     <span className="text-xs text-muted-foreground">({t.fifa_code})</span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono">{s.total}</td>

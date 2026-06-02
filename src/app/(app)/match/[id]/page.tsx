@@ -2,6 +2,7 @@ import { Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { teamName } from "@/lib/teams/i18n";
 
 type Team = { id: number; name: string; fifa_code: string; flag_url: string | null };
 
@@ -225,7 +226,9 @@ function TeamHero({
     >
       <Flag flagUrl={team.flag_url} />
       <div className="text-center">
-        <div className="text-sm font-semibold sm:text-base">{team.name}</div>
+        <div className="text-sm font-semibold sm:text-base">
+          {teamName(team.fifa_code, team.name)}
+        </div>
         <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           {team.fifa_code}
         </div>

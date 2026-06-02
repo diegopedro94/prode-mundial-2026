@@ -5,6 +5,7 @@ import { Check, Trophy, Medal, Target, Star, Shield } from "lucide-react";
 
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { upsertSpecial } from "@/lib/predictions/actions";
+import { teamName } from "@/lib/teams/i18n";
 
 type Team = {
   id: number;
@@ -113,8 +114,10 @@ export function SpecialForm({ teams, players, initial, isLocked, lockAt }: Props
     () =>
       teams.map((t) => ({
         value: String(t.id),
-        label: t.name,
-        searchText: t.fifa_code,
+        label: teamName(t.fifa_code, t.name),
+        // Index Spanish name + English fallback + fifa code so the search
+        // works whether the user types "Brasil", "Brazil", or "BRA".
+        searchText: `${t.name} ${t.fifa_code}`,
         team: t,
       })),
     [teams],
@@ -370,7 +373,7 @@ function TeamRow({
       ) : null}
       <Flag flagUrl={team.flag_url} size={compact ? "sm" : "md"} />
       <span className={`flex-1 truncate ${compact ? "text-sm" : "text-sm font-medium"}`}>
-        {team.name}
+        {teamName(team.fifa_code, team.name)}
       </span>
       <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {team.fifa_code}

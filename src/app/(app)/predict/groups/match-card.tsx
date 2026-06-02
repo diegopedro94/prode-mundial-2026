@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { upsertPrediction } from "@/lib/predictions/actions";
+import { teamName } from "@/lib/teams/i18n";
 
 type Team = { id: number; name: string; fifa_code: string; flag_url: string | null };
 
@@ -104,7 +105,7 @@ export function MatchCard({
             value={home}
             onChange={setHome}
             disabled={isLocked}
-            label={`Goles de ${homeTeam.name}`}
+            label={`Goles de ${teamName(homeTeam.fifa_code, homeTeam.name)}`}
           />
           <span className="text-muted-foreground" aria-hidden="true">
             –
@@ -113,7 +114,7 @@ export function MatchCard({
             value={away}
             onChange={setAway}
             disabled={isLocked}
-            label={`Goles de ${awayTeam.name}`}
+            label={`Goles de ${teamName(awayTeam.fifa_code, awayTeam.name)}`}
           />
         </div>
 
@@ -132,7 +133,7 @@ function TeamSide({ team, side }: { team: Team; side: "home" | "away" }) {
       <Flag flagUrl={team.flag_url} />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold leading-tight">
-          {team.name}
+          {teamName(team.fifa_code, team.name)}
         </div>
         <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           {team.fifa_code}

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Save } from "lucide-react";
 
 import { setMatchResult } from "@/lib/admin/actions";
+import { teamName } from "@/lib/teams/i18n";
 
 type Team = { id: number; name: string; fifa_code: string };
 
@@ -110,7 +111,7 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
             value={home}
             onChange={setHome}
             disabled={isPending}
-            label={`Goles de ${match.homeTeam.name}`}
+            label={`Goles de ${teamName(match.homeTeam.fifa_code, match.homeTeam.name)}`}
           />
           <span className="text-muted-foreground" aria-hidden="true">
             –
@@ -119,7 +120,7 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
             value={away}
             onChange={setAway}
             disabled={isPending}
-            label={`Goles de ${match.awayTeam.name}`}
+            label={`Goles de ${teamName(match.awayTeam.fifa_code, match.awayTeam.name)}`}
           />
         </div>
 
@@ -229,7 +230,7 @@ function TeamSide({
       <Flag flagUrl={team.flag_url ?? null} />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold leading-tight">
-          {team.name}
+          {teamName(team.fifa_code, team.name)}
         </div>
         <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           {team.fifa_code}
