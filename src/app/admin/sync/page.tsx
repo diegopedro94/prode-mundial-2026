@@ -49,7 +49,7 @@ export default async function AdminSyncPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Estado del sync</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           GitHub Actions corre <code className="text-xs">sync-results.ts</code> cada 5
           minutos durante el Mundial. El script se auto-saltea si no hay partidos hoy.
         </p>
@@ -86,15 +86,15 @@ export default async function AdminSyncPage() {
       ) : null}
 
       <div className="space-y-2">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-zinc-500">
+        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Últimas 50 corridas
         </h2>
         {runs.length === 0 ? (
-          <p className="text-sm text-zinc-500">Sin corridas registradas.</p>
+          <p className="text-sm text-muted-foreground">Sin corridas registradas.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <div className="overflow-x-auto rounded-xl border border-border">
             <table className="w-full text-sm">
-              <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900">
+              <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground ">
                 <tr>
                   <th className="px-3 py-2">Cuando</th>
                   <th className="px-3 py-2">Estado</th>
@@ -108,7 +108,7 @@ export default async function AdminSyncPage() {
                 {runs.map((r) => (
                   <tr
                     key={r.id}
-                    className="border-t border-zinc-200 dark:border-zinc-800"
+                    className="border-t border-border"
                   >
                     <td className="px-3 py-2 font-mono text-xs">
                       {formatTime(r.started_at)}
@@ -151,13 +151,13 @@ function Stat({
   const tones = {
     good: "border-emerald-300 dark:border-emerald-700",
     bad: "border-red-300 dark:border-red-700",
-    neutral: "border-zinc-200 dark:border-zinc-800",
+    neutral: "border-border",
   };
   return (
     <div
-      className={`rounded-xl border bg-white p-4 dark:bg-zinc-950 ${tones[tone]}`}
+      className={`rounded-xl border bg-card p-4 ${tones[tone]}`}
     >
-      <div className="text-xs uppercase tracking-wider text-zinc-500">{label}</div>
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="mt-1 text-base font-medium">{value}</div>
     </div>
   );

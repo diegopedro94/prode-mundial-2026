@@ -39,7 +39,7 @@ export function LockRostersButton({ disabled }: { disabled: boolean }) {
             : "Lockear todos los rosters"}
       </button>
       {error ? (
-        <p className="text-xs text-red-600 dark:text-red-400" title={error}>
+        <p className="text-xs text-destructive" title={error}>
           {error}
         </p>
       ) : null}

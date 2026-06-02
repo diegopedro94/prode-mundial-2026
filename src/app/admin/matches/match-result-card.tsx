@@ -287,7 +287,7 @@ function ScoreInput({
 
 function StatusPill({ status }: { status: MatchRow["status"] }) {
   const styles: Record<MatchRow["status"], string> = {
-    scheduled: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+    scheduled: "bg-muted text-muted-foreground",
     live:
       "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
     finished:

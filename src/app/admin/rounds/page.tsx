@@ -27,7 +27,7 @@ export default async function AdminRoundsPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Rondas y deadlines</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           Cuando se llega al <code className="text-xs">locks_at</code> de una ronda, las
           RLS de Postgres bloquean los INSERT/UPDATE de predicciones para esa etapa.
           Los pibes ven el estado read-only en la UI pero la verdad vive en la policy.

@@ -60,7 +60,7 @@ const TILES: Tile[] = [
     description: "Historial de cambios en partidos y configuración.",
     href: "/admin/audit",
     icon: <ScrollText className="h-5 w-5" />,
-    accent: "text-zinc-600 dark:text-zinc-400",
+    accent: "text-muted-foreground",
   },
 ];
 

@@ -49,7 +49,7 @@ export default async function AdminAllowedEmailsPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Whitelist de emails</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           Solo estos emails pueden hacer login. Los marcados como admin tienen acceso a
           este panel.
         </p>

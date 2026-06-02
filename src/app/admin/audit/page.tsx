@@ -86,18 +86,18 @@ export default async function AdminAuditPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Audit log</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           Últimas 100 mutaciones sobre <code className="text-xs">matches</code>. Actor
           vacío = service role (el sync de api-football).
         </p>
       </header>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-zinc-500">No hay entradas todavía.</p>
+        <p className="text-sm text-muted-foreground">No hay entradas todavía.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900">
+            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground ">
               <tr>
                 <th className="px-3 py-2">Cuando</th>
                 <th className="px-3 py-2">Actor</th>
@@ -108,19 +108,19 @@ export default async function AdminAuditPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-zinc-200 align-top dark:border-zinc-800">
-                  <td className="px-3 py-2 font-mono text-xs text-zinc-500">
+                <tr key={r.id} className="border-t border-border align-top">
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                     {fmt(r.created_at)}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {r.actor_id ? (
                       profilesById.get(r.actor_id) ?? r.actor_id.slice(0, 8)
                     ) : (
-                      <span className="text-zinc-400">sync</span>
+                      <span className="text-muted-foreground/60">sync</span>
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">{r.action}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-zinc-500">
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                     {r.entity}#{r.entity_id}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">

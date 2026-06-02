@@ -49,9 +49,9 @@ export function RoundsTable({
   rounds: { stage: Stage; locks_at: string }[];
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <div className="overflow-hidden rounded-xl border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900">
+        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground ">
           <tr>
             <th className="px-3 py-2">Ronda</th>
             <th className="px-3 py-2">Locks at (ARG)</th>
@@ -98,7 +98,7 @@ function RoundRow({
   };
 
   return (
-    <tr className="border-t border-zinc-200 dark:border-zinc-800">
+    <tr className="border-t border-border">
       <td className="px-3 py-2 font-medium">{STAGE_LABEL[stage]}</td>
       <td className="px-3 py-2">
         <Input
@@ -114,7 +114,7 @@ function RoundRow({
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {isPending ? "Guardando..." : "Guardar"}
         </button>
@@ -124,7 +124,7 @@ function RoundRow({
           </span>
         ) : null}
         {error ? (
-          <span className="ml-2 text-sm text-red-600 dark:text-red-400" title={error}>
+          <span className="ml-2 text-sm text-destructive" title={error}>
             Error
           </span>
         ) : null}

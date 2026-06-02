@@ -31,7 +31,7 @@ export default async function AdminRostersPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Lock rosters</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           Los selectores de Goleador / MVP / Mejor arquero en
           {" "}
           <code className="text-xs">/predict/special</code> solo muestran jugadores con
@@ -42,13 +42,13 @@ export default async function AdminRostersPage() {
         </p>
       </header>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-medium">
               {totalLocked} / {totalPlayers} jugadores lockeados
             </div>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {allLocked
                 ? "Rosters lockeados. Para ajustes finos (lesiones, etc.) usá SQL directo en allowed_emails — no hay UI per-player todavía."
                 : "Antes de lockear, asegurate de que las listas oficiales ya estén publicadas. El pull desde api-football trae todos los jugadores convocados; lockear los marca a todos como official."}
@@ -58,9 +58,9 @@ export default async function AdminRostersPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+      <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900">
+          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground ">
             <tr>
               <th className="px-3 py-2">Selecci&oacute;n</th>
               <th className="px-3 py-2 text-right">Jugadores</th>
@@ -72,10 +72,10 @@ export default async function AdminRostersPage() {
               const s = stats.get(t.id) ?? { total: 0, locked: 0 };
               const isFullyLocked = s.total > 0 && s.locked === s.total;
               return (
-                <tr key={t.id} className="border-t border-zinc-200 dark:border-zinc-800">
+                <tr key={t.id} className="border-t border-border">
                   <td className="px-3 py-2 font-medium">
                     {t.name}{" "}
-                    <span className="text-xs text-zinc-500">({t.fifa_code})</span>
+                    <span className="text-xs text-muted-foreground">({t.fifa_code})</span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono">{s.total}</td>
                   <td className="px-3 py-2 text-right font-mono">
@@ -84,7 +84,7 @@ export default async function AdminRostersPage() {
                         {s.locked}
                       </span>
                     ) : (
-                      <span className="text-zinc-500">{s.locked}</span>
+                      <span className="text-muted-foreground">{s.locked}</span>
                     )}
                   </td>
                 </tr>

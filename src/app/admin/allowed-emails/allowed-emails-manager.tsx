@@ -54,7 +54,7 @@ export function AllowedEmailsManager({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="rounded-xl border border-border bg-card p-4">
         <div className="text-sm font-medium">Invitar un email</div>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[240px]">
@@ -79,19 +79,19 @@ export function AllowedEmailsManager({
             type="button"
             onClick={handleAdd}
             disabled={isPending || newEmail === ""}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {isPending ? "Agregando..." : "Agregar"}
           </button>
         </div>
         {addError ? (
-          <p className="mt-2 text-sm text-red-600 dark:text-red-400">{addError}</p>
+          <p className="mt-2 text-sm text-destructive">{addError}</p>
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+      <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900">
+          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground ">
             <tr>
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Rol</th>
@@ -133,7 +133,7 @@ function Row({
   };
 
   return (
-    <tr className="border-t border-zinc-200 dark:border-zinc-800">
+    <tr className="border-t border-border">
       <td className="px-3 py-2 font-mono text-xs">{row.email}</td>
       <td className="px-3 py-2">
         {row.isAdmin ? (
@@ -141,10 +141,10 @@ function Row({
             admin
           </span>
         ) : (
-          <span className="text-xs text-zinc-500">player</span>
+          <span className="text-xs text-muted-foreground">player</span>
         )}
       </td>
-      <td className="px-3 py-2 text-xs text-zinc-500">{fmt(row.addedAt)}</td>
+      <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(row.addedAt)}</td>
       <td className="px-3 py-2 text-xs">{row.addedBy}</td>
       <td className="px-3 py-2 text-right">
         <button
@@ -152,12 +152,12 @@ function Row({
           onClick={handleRemove}
           disabled={isPending || isSelf}
           title={isSelf ? "No te podés sacar a vos mismo" : undefined}
-          className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "..." : "Sacar"}
         </button>
         {error ? (
-          <p className="text-right text-xs text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-right text-xs text-destructive">{error}</p>
         ) : null}
       </td>
     </tr>
