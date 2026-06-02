@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SoccerBall } from "@/components/icons/soccer-ball";
+import { NavLink } from "@/components/nav-link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const SECTIONS = [
@@ -63,15 +64,16 @@ export default async function AdminLayout({
           </div>
         </div>
         <div className="border-t border-border/40">
-          <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 py-2 sm:px-6">
+          <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 py-2 sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {SECTIONS.map((s) => (
-              <Link
+              <NavLink
                 key={s.href}
                 href={s.href}
-                className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                size="sm"
+                matchSubpaths={!s.exact}
               >
                 {s.label}
-              </Link>
+              </NavLink>
             ))}
           </nav>
         </div>

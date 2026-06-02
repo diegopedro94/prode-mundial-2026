@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SoccerBall } from "@/components/icons/soccer-ball";
+import { NavLink } from "@/components/nav-link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({
@@ -43,7 +44,7 @@ export default async function AppLayout({
             <NavLink href="/leaderboard">Tabla</NavLink>
             <NavLink href="/me">Yo</NavLink>
             {profile?.is_admin ? (
-              <NavLink href="/admin" highlight>
+              <NavLink href="/admin" matchSubpaths highlight>
                 Admin
               </NavLink>
             ) : null}
@@ -71,27 +72,6 @@ export default async function AppLayout({
         {children}
       </main>
     </div>
-  );
-}
-
-function NavLink({
-  href,
-  children,
-  highlight,
-}: {
-  href: string;
-  children: React.ReactNode;
-  highlight?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition active:scale-[0.96] hover:bg-muted ${
-        highlight ? "text-primary" : "text-foreground/80 hover:text-foreground"
-      }`}
-    >
-      {children}
-    </Link>
   );
 }
 
