@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { SoccerBall } from "@/components/icons/soccer-ball";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({
@@ -27,10 +28,11 @@ export default async function AppLayout({
     <div className="flex min-h-full flex-1 flex-col">
       <header className="sticky top-0 z-30 border-b border-border/80 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60 text-xs font-bold text-primary-foreground">
-              26
-            </span>
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-display text-base font-bold tracking-tight transition active:scale-[0.97]"
+          >
+            <SoccerBall className="h-6 w-6 text-primary" />
             <span className="hidden sm:inline">Prode Mundial 2026</span>
             <span className="sm:hidden">Prode 2026</span>
           </Link>
@@ -84,7 +86,7 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`rounded-md px-2 py-1 text-sm font-medium transition hover:bg-muted ${
+      className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition active:scale-[0.96] hover:bg-muted ${
         highlight ? "text-primary" : "text-foreground/80 hover:text-foreground"
       }`}
     >

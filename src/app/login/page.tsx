@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { LoginButton } from "@/app/login/login-button";
+import { SoccerBall } from "@/components/icons/soccer-ball";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function LoginPage({
@@ -27,10 +28,8 @@ export default async function LoginPage({
 
       <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 text-xl font-bold text-primary-foreground shadow-md shadow-primary/30">
-            26
-          </div>
-          <h1 className="mt-4 text-xl font-semibold tracking-tight">
+          <SoccerBall className="h-14 w-14 text-primary drop-shadow-md" />
+          <h1 className="mt-4 font-display text-xl font-bold tracking-tight">
             Prode Mundial 2026
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

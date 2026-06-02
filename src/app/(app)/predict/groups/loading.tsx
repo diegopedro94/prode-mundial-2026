@@ -1,6 +1,6 @@
 export default function GroupsLoading() {
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       <header className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
@@ -11,26 +11,23 @@ export default function GroupsLoading() {
         </div>
       </header>
 
-      <div className="grid grid-cols-6 gap-1 sm:grid-cols-12">
-        {Array.from({ length: 12 }).map((_, i) => (
+      <div className="-mx-4 flex gap-2 overflow-hidden px-4 sm:mx-0 sm:px-0">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-12 animate-pulse rounded-md bg-muted/70"
+            className="h-16 w-20 shrink-0 animate-pulse rounded-2xl bg-muted/70"
           />
         ))}
       </div>
 
       <div className="space-y-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-border bg-card"
-          >
+          <div key={i} className="rounded-2xl border border-border bg-card">
             <div className="border-b border-border/60 bg-muted/40 px-3 py-2">
               <div className="h-3 w-40 animate-pulse rounded bg-muted" />
             </div>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-4">
-              <div className="flex items-center gap-2 justify-end">
+              <div className="flex items-center justify-end gap-2">
                 <div className="h-4 w-24 animate-pulse rounded bg-muted/70" />
                 <div className="h-7 w-10 animate-pulse rounded-sm bg-muted" />
               </div>
