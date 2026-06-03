@@ -66,7 +66,7 @@ export default async function Home() {
                 href="/leaderboard"
                 className="rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition active:scale-[0.97] hover:bg-white/20"
               >
-                Ver leaderboard
+                Ver posiciones
               </Link>
             </>
           ) : (

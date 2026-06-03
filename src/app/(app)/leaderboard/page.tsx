@@ -29,7 +29,7 @@ export default async function LeaderboardPage() {
   if (error) {
     return (
       <section className="space-y-4">
-        <h1 className="font-display text-2xl font-bold tracking-tight">Leaderboard</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">Posiciones</h1>
         <p className="text-sm text-destructive">{error.message}</p>
       </section>
     );
@@ -42,7 +42,7 @@ export default async function LeaderboardPage() {
     <section className="space-y-5">
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          Leaderboard
+          Posiciones
         </h1>
         <p className="text-sm text-muted-foreground">
           Ordenado por puntos. Desempate: cantidad de scores exactos. Los puntos se

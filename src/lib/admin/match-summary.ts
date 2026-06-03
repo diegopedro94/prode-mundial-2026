@@ -67,16 +67,12 @@ export function buildMatchSummary(input: SummaryInput): string {
     lines.push("");
   }
 
-  lines.push(`📊 Pronósticos para ${homeName} vs ${awayName}:`);
-
   // ---- Score exacto ---------------------------------------------------------
   if (input.predictions.length === 0) {
-    lines.push("");
-    lines.push("(Nadie cargó predicción para este partido.)");
+    lines.push(`(Nadie cargó predicción para ${homeName} vs ${awayName}.)`);
     return lines.join("\n");
   }
 
-  lines.push("");
   lines.push("*Score exacto (+4 pts):*");
   const byScore = new Map<string, string[]>();
   for (const p of input.predictions) {

@@ -61,7 +61,7 @@ export default async function AppLayout({
           <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-2 text-sm sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <NavLink href="/predict/groups">Grupos</NavLink>
             <NavLink href="/predict/special">Especiales</NavLink>
-            <NavLink href="/leaderboard">Tabla</NavLink>
+            <NavLink href="/leaderboard">Posiciones</NavLink>
             <NavLink href="/me">Yo</NavLink>
             {profile?.is_admin ? (
               <NavLink href="/admin" matchSubpaths highlight>
