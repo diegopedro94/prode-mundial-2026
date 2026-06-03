@@ -117,6 +117,7 @@ export type Database = {
           scheduled_at: string
           stage: Database["public"]["Enums"]["tournament_stage"]
           status: Database["public"]["Enums"]["match_status"]
+          summary_intro: string | null
           updated_at: string | null
           went_to_penalties: boolean
           winner_team_id: number | null
@@ -133,6 +134,7 @@ export type Database = {
           scheduled_at: string
           stage: Database["public"]["Enums"]["tournament_stage"]
           status?: Database["public"]["Enums"]["match_status"]
+          summary_intro?: string | null
           updated_at?: string | null
           went_to_penalties?: boolean
           winner_team_id?: number | null
@@ -149,6 +151,7 @@ export type Database = {
           scheduled_at?: string
           stage?: Database["public"]["Enums"]["tournament_stage"]
           status?: Database["public"]["Enums"]["match_status"]
+          summary_intro?: string | null
           updated_at?: string | null
           went_to_penalties?: boolean
           winner_team_id?: number | null

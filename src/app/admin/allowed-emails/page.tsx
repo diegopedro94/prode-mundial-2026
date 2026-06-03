@@ -48,10 +48,13 @@ export default async function AdminAllowedEmailsPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Whitelist de emails</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">
+          Admins
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Solo estos emails pueden hacer login. Los marcados como admin tienen acceso a
-          este panel.
+          El registro est&aacute; abierto: cualquiera con Google entra. Esta lista
+          marca qui&eacute;n tiene acceso al panel de admin (ver resultados, lockear
+          rondas, generar summaries para WhatsApp).
         </p>
       </header>
       <AllowedEmailsManager

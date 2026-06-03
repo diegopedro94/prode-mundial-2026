@@ -42,8 +42,8 @@ const TILES: Tile[] = [
     accent: "text-amber-600 dark:text-amber-400",
   },
   {
-    title: "Whitelist",
-    description: "Invitar o revocar acceso al prode.",
+    title: "Admins",
+    description: "Quién tiene acceso al panel del consejo.",
     href: "/admin/allowed-emails",
     icon: <Users className="h-5 w-5" />,
     accent: "text-rose-600 dark:text-rose-400",

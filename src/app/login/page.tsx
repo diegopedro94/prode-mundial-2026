@@ -33,8 +33,7 @@ export default async function LoginPage({
             Prode Mundial 2026
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Solo emails autorizados. Pedile al admin que te agregue si todav&iacute;a no
-            est&aacute;s.
+            Ingres&aacute; con tu cuenta de Google y empez&aacute; a cargar.
           </p>
         </div>
 

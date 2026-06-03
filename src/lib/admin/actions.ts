@@ -102,6 +102,25 @@ export async function upsertAllowedEmail(
   return { ok: true };
 }
 
+export async function saveMatchSummaryIntro(
+  matchId: number,
+  intro: string,
+): Promise<ActionResult> {
+  if (!Number.isFinite(matchId) || matchId <= 0) {
+    return { ok: false, error: "matchId inválido" };
+  }
+  // Cap to avoid storing huge blobs; the intro is meant to be a paragraph.
+  const trimmed = intro.length > 2000 ? intro.slice(0, 2000) : intro;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("matches")
+    .update({ summary_intro: trimmed })
+    .eq("id", matchId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/admin/matches/${matchId}`);
+  return { ok: true };
+}
+
 export async function lockAllRosters(): Promise<ActionResult> {
   const supabase = await createSupabaseServerClient();
   const {

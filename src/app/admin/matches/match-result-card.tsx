@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Save } from "lucide-react";
+import { MessageSquare, Save } from "lucide-react";
 
 import { setMatchResult } from "@/lib/admin/actions";
 import { teamName } from "@/lib/teams/i18n";
@@ -91,7 +92,7 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-3 py-1.5 text-[11px] font-medium">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 py-1.5 text-[11px] font-medium">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <span className="tabular-nums">{kickoff}</span>
           <span aria-hidden="true">·</span>
@@ -100,7 +101,17 @@ export function MatchResultCard({ match }: { match: MatchRow }) {
             {match.groupLetter ? ` ${match.groupLetter}` : ""}
           </span>
         </div>
-        <StatusPill status={status} />
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/matches/${match.id}`}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground transition active:scale-[0.96] hover:bg-muted hover:text-foreground"
+            title="Generar resumen para WhatsApp"
+          >
+            <MessageSquare className="h-3 w-3" />
+            Resumen
+          </Link>
+          <StatusPill status={status} />
+        </div>
       </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-3 sm:gap-4 sm:px-4">

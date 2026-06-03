@@ -22,13 +22,8 @@ export async function GET(request: Request) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    // Most common cause: email not in allowed_emails (the auth.users insert
-    // trigger rejected the signup). Show a friendly message.
-    const message = /not authorized/i.test(error.message)
-      ? "Tu email no est&aacute; autorizado para este prode."
-      : error.message;
     return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(message)}`, url.origin),
+      new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin),
     );
   }
 
