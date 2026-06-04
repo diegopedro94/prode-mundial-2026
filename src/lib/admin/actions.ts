@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import type { TablesUpdate } from "@/lib/database.types";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadTeamExternalIndex, syncGoalsForFixture } from "@/lib/sync/goals";
 
 import {
   allowedEmailSchema,
@@ -100,6 +102,54 @@ export async function upsertAllowedEmail(
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/allowed-emails");
   return { ok: true };
+}
+
+export async function refreshMatchGoals(
+  matchId: number,
+): Promise<ActionResult & { inserted?: number }> {
+  if (!Number.isFinite(matchId) || matchId <= 0) {
+    return { ok: false, error: "matchId inválido" };
+  }
+  // Admin gate.
+  const userClient = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
+  if (!user) return { ok: false, error: "No hay sesión" };
+  const { data: profile } = await userClient
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle<{ is_admin: boolean }>();
+  if (!profile?.is_admin) return { ok: false, error: "Solo admins" };
+
+  // Resolve external_id, then call the shared goals sync with force=true so
+  // it overrides whatever we had on file (api-football sometimes publishes
+  // corrected scorers hours after the final whistle).
+  const admin = createSupabaseAdminClient();
+  const { data: match } = await admin
+    .from("matches")
+    .select("external_id")
+    .eq("id", matchId)
+    .maybeSingle();
+  if (!match?.external_id) {
+    return { ok: false, error: "El partido no tiene external_id de api-football" };
+  }
+
+  try {
+    const teams = await loadTeamExternalIndex(admin);
+    const r = await syncGoalsForFixture(admin, match.external_id, teams, {
+      force: true,
+    });
+    revalidatePath(`/admin/matches/${matchId}`);
+    revalidatePath("/admin/top-scorers");
+    return { ok: true, inserted: r.inserted };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 export async function saveMatchSummaryIntro(

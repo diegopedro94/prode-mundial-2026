@@ -7,62 +7,23 @@
  * Logs every run to `sync_log` so /admin/sync can show status.
  */
 
-import type { Database, TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  hasApiErrors,
+  parseApiFixture,
+  type ApiFixturePayload,
+} from "@/lib/sync/parse-fixture";
+import {
+  loadTeamExternalIndex,
+  syncGoalsForFixture,
+} from "@/lib/sync/goals";
 
 const LEAGUE_WORLD_CUP = 1;
 const SEASON = 2026;
 const TIMEZONE = "America/Argentina/Buenos_Aires";
 
-type ApiFixtureStatus = {
-  short: string;
-  long: string;
-  elapsed: number | null;
-};
-
-type ApiFixture = {
-  fixture: {
-    id: number;
-    date: string;
-    status: ApiFixtureStatus;
-  };
-  teams: {
-    home: { id: number; winner: boolean | null };
-    away: { id: number; winner: boolean | null };
-  };
-  goals: { home: number | null; away: number | null };
-  score: {
-    halftime: { home: number | null; away: number | null };
-    fulltime: { home: number | null; away: number | null };
-    extratime: { home: number | null; away: number | null };
-    penalty: { home: number | null; away: number | null };
-  };
-};
-
-type MatchStatus = Database["public"]["Enums"]["match_status"];
-
-const STATUS_MAP: Record<string, MatchStatus> = {
-  TBD: "scheduled",
-  NS: "scheduled",
-  SCH: "scheduled",
-  PST: "scheduled",
-  // live states
-  "1H": "live",
-  HT: "live",
-  "2H": "live",
-  ET: "live",
-  BT: "live",
-  P: "live",
-  SUSP: "live",
-  INT: "live",
-  LIVE: "live",
-  // finished states
-  FT: "finished",
-  AET: "finished",
-  PEN: "finished",
-  AWD: "finished",
-  WO: "finished",
+type ApiFixture = ApiFixturePayload & {
+  fixture: ApiFixturePayload["fixture"] & { date: string };
 };
 
 function todayInTz(): string {
@@ -92,170 +53,13 @@ async function fetchFixtures(date: string): Promise<{
   }
   const remainingHeader = res.headers.get("x-ratelimit-requests-remaining");
   const requestsRemaining = remainingHeader ? Number(remainingHeader) : null;
-  const body = (await res.json()) as { response: ApiFixture[] };
-  return { fixtures: body.response, requestsRemaining };
-}
-
-type ApiEvent = {
-  time: { elapsed: number | null; extra: number | null };
-  team: { id: number; name: string };
-  player: { id: number | null; name: string | null };
-  type: string;
-  detail: string;
-};
-
-async function fetchFixtureEvents(fixtureId: number): Promise<ApiEvent[]> {
-  const apiKey = process.env.API_FOOTBALL_KEY;
-  if (!apiKey) throw new Error("API_FOOTBALL_KEY is not set");
-  const url = new URL("https://v3.football.api-sports.io/fixtures/events");
-  url.searchParams.set("fixture", String(fixtureId));
-  const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
-  if (!res.ok) {
-    throw new Error(
-      `api-football /fixtures/events returned ${res.status}: ${await res.text()}`,
-    );
+  const body = (await res.json()) as { response: ApiFixture[]; errors?: unknown };
+  // api-football returns 200 + empty response when plan/token rejections hit.
+  // Treat the envelope errors as hard failure so sync_log captures it.
+  if (hasApiErrors(body)) {
+    throw new Error(`api-football /fixtures envelope errors: ${JSON.stringify(body.errors)}`);
   }
-  const body = (await res.json()) as { response: ApiEvent[] };
-  return body.response ?? [];
-}
-
-function buildUpdate(
-  fixture: ApiFixture,
-  internalHomeTeamId: number,
-  internalAwayTeamId: number,
-): TablesUpdate<"matches"> {
-  const status = STATUS_MAP[fixture.fixture.status.short] ?? "scheduled";
-  const wentToPenalties = fixture.fixture.status.short === "PEN";
-
-  let homeScore: number | null = fixture.goals.home;
-  let awayScore: number | null = fixture.goals.away;
-  // Use fulltime score when available (api-football leaves goals at extratime
-  // sometimes; fulltime is the canonical 90+stoppage score). For PEN matches,
-  // the 'fulltime' captures the result at the end of regulation+ET.
-  if (fixture.score.fulltime.home != null) homeScore = fixture.score.fulltime.home;
-  if (fixture.score.fulltime.away != null) awayScore = fixture.score.fulltime.away;
-
-  let winnerTeamId: number | null = null;
-  if (status === "finished") {
-    if (fixture.teams.home.winner === true) winnerTeamId = internalHomeTeamId;
-    else if (fixture.teams.away.winner === true) winnerTeamId = internalAwayTeamId;
-    // If both are null/false (group-stage draw), winnerTeamId stays null.
-  }
-
-  let pkWinnerTeamId: number | null = null;
-  if (wentToPenalties) {
-    const ph = fixture.score.penalty.home ?? 0;
-    const pa = fixture.score.penalty.away ?? 0;
-    if (ph > pa) pkWinnerTeamId = internalHomeTeamId;
-    else if (pa > ph) pkWinnerTeamId = internalAwayTeamId;
-  }
-
-  return {
-    status,
-    home_score: homeScore,
-    away_score: awayScore,
-    went_to_penalties: wentToPenalties,
-    pk_winner_team_id: pkWinnerTeamId,
-    winner_team_id: winnerTeamId,
-  };
-}
-
-/**
- * Pull /fixtures/events for a fixture, filter Goal-type entries, ensure each
- * scorer exists in `players`, then DELETE+INSERT goals atomically so the call
- * is idempotent (re-polling a finished match doesn't double the count).
- */
-async function syncGoalsForFixture(
-  supabase: SupabaseClient<Database>,
-  fixtureExternalId: number,
-  teamExternalToInternal: Map<number, number>,
-): Promise<number> {
-  // Look up our internal match id.
-  const { data: matchRow } = await supabase
-    .from("matches")
-    .select("id")
-    .eq("external_id", fixtureExternalId)
-    .maybeSingle();
-  if (!matchRow) return 0;
-  const internalMatchId = matchRow.id;
-
-  // Skip if we already have goals for this match — avoids re-fetching the
-  // events endpoint on every poll for already-processed finals.
-  const { count: existingGoals } = await supabase
-    .from("goals")
-    .select("id", { count: "exact", head: true })
-    .eq("match_id", internalMatchId);
-  if ((existingGoals ?? 0) > 0) return 0;
-
-  let events: ApiEvent[];
-  try {
-    events = await fetchFixtureEvents(fixtureExternalId);
-  } catch (err) {
-    console.warn(`  fixture ${fixtureExternalId} events fetch failed:`, err);
-    return 0;
-  }
-
-  const goalRows: TablesInsert<"goals">[] = [];
-  for (const ev of events) {
-    if (ev.type !== "Goal" || ev.detail === "Missed Penalty") continue;
-    if (ev.player.id == null) continue; // anonymous events sometimes appear
-    const teamInternalId = teamExternalToInternal.get(ev.team.id);
-    if (!teamInternalId) continue;
-
-    // Find or insert the player. Goals can be scored by players not in our
-    // pre-loaded roster (post-deadline call-ups, KO-stage substitutes, etc.).
-    let { data: playerRow } = await supabase
-      .from("players")
-      .select("id")
-      .eq("external_id", ev.player.id)
-      .maybeSingle();
-    if (!playerRow) {
-      const { data: inserted, error: insertErr } = await supabase
-        .from("players")
-        .insert({
-          external_id: ev.player.id,
-          team_id: teamInternalId,
-          name: ev.player.name ?? `Player ${ev.player.id}`,
-          is_in_official_roster: false,
-        })
-        .select("id")
-        .single();
-      if (insertErr) {
-        console.warn(
-          `  could not insert player ${ev.player.id} (${ev.player.name}):`,
-          insertErr.message,
-        );
-        continue;
-      }
-      playerRow = inserted!;
-    }
-
-    const minute =
-      ev.time.elapsed != null
-        ? ev.time.elapsed + (ev.time.extra ?? 0)
-        : null;
-    goalRows.push({
-      match_id: internalMatchId,
-      player_id: playerRow.id,
-      team_id: teamInternalId,
-      minute,
-      is_penalty: ev.detail === "Penalty",
-      is_own_goal: ev.detail === "Own Goal",
-    });
-  }
-
-  if (goalRows.length === 0) return 0;
-
-  // Atomic-ish: delete any leftover (existingGoals was 0, but be defensive),
-  // then insert. If insert fails we'd be left with no goals for the match —
-  // next poll will retry.
-  await supabase.from("goals").delete().eq("match_id", internalMatchId);
-  const { error } = await supabase.from("goals").insert(goalRows);
-  if (error) {
-    console.warn(`  goal insert failed for fixture ${fixtureExternalId}:`, error.message);
-    return 0;
-  }
-  return goalRows.length;
+  return { fixtures: body.response ?? [], requestsRemaining };
 }
 
 async function main() {
@@ -313,16 +117,10 @@ async function main() {
     }
 
     // Map external team ids → internal ids so we can fill winner / pk_winner.
-    const { data: teams, error: teamsError } = await supabase
-      .from("teams")
-      .select("id, external_id");
-    if (teamsError) throw teamsError;
-    const externalToInternal = new Map<number, number>();
-    for (const t of teams ?? []) {
-      if (t.external_id != null) externalToInternal.set(t.external_id, t.id);
-    }
+    const externalToInternal = await loadTeamExternalIndex(supabase);
 
     let updated = 0;
+    let skipped = 0;
     let goalsUpserted = 0;
     for (const fixture of fixtures) {
       const home = externalToInternal.get(fixture.teams.home.id);
@@ -331,9 +129,16 @@ async function main() {
         console.warn(
           `  skip fixture ${fixture.fixture.id}: home/away team not in DB`,
         );
+        skipped += 1;
         continue;
       }
-      const update = buildUpdate(fixture, home, away);
+      const parsed = parseApiFixture(fixture, home, away);
+      if (parsed.kind === "skip") {
+        console.warn(`  skip fixture ${fixture.fixture.id}: ${parsed.reason}`);
+        skipped += 1;
+        continue;
+      }
+      const update = parsed.update;
 
       // The audit_match_changes trigger logs every UPDATE with actor=null
       // (service role). The recalc_predictions_for_match trigger recomputes
@@ -349,20 +154,33 @@ async function main() {
       updated += 1;
 
       // Capture goleadores for finished matches that don't have any goals in
-      // our DB yet. Late edits by api-football would be re-fetched on demand
-      // by the admin via a future "refresh goals" action.
+      // our DB yet. Corrections after the fact get a manual "refresh goals"
+      // path from /admin/matches/[id].
       if (update.status === "finished") {
-        const inserted = await syncGoalsForFixture(
-          supabase,
-          fixture.fixture.id,
-          externalToInternal,
-        );
-        if (inserted > 0) goalsUpserted += inserted;
+        try {
+          const r = await syncGoalsForFixture(
+            supabase,
+            fixture.fixture.id,
+            externalToInternal,
+          );
+          goalsUpserted += r.inserted;
+        } catch (err) {
+          console.warn(
+            `  fixture ${fixture.fixture.id} goals fetch failed:`,
+            err instanceof Error ? err.message : err,
+          );
+        }
       }
     }
     if (goalsUpserted > 0) {
       console.log(`  -> ${goalsUpserted} goals inserted across finished matches`);
     }
+    if (skipped > 0) {
+      console.log(`  -> ${skipped} fixtures skipped (see warnings above)`);
+    }
+
+    const errorMessage =
+      skipped > 0 ? `${skipped} fixture(s) skipped — see logs` : null;
 
     await supabase
       .from("sync_log")
@@ -372,6 +190,7 @@ async function main() {
         fixtures_processed: fixtures.length,
         fixtures_updated: updated,
         requests_remaining: requestsRemaining,
+        error_message: errorMessage,
       })
       .eq("id", syncLogId);
 

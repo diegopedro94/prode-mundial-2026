@@ -9,6 +9,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { teamName } from "@/lib/teams/i18n";
 
+import { RefreshGoalsButton } from "./refresh-goals-button";
 import { SummaryEditor } from "./summary-editor";
 
 type Team = { id: number; name: string; fifa_code: string; flag_url: string | null };
@@ -107,14 +108,21 @@ export default async function AdminMatchDetailPage({
           <ArrowLeft className="h-3 w-3" />
           Volver a partidos
         </Link>
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          {homeName} <span className="text-muted-foreground">vs</span> {awayName}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {kickoff} · {predictions.length} predicción
-          {predictions.length === 1 ? "" : "es"} cargada
-          {predictions.length === 1 ? "" : "s"}
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+              {homeName} <span className="text-muted-foreground">vs</span> {awayName}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {kickoff} · {predictions.length} predicción
+              {predictions.length === 1 ? "" : "es"} cargada
+              {predictions.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          {match.status === "finished" ? (
+            <RefreshGoalsButton matchId={match.id} />
+          ) : null}
+        </div>
       </header>
 
       <SummaryEditor
