@@ -17,8 +17,6 @@ type Team = {
 type Player = {
   id: number;
   name: string;
-  firstname: string | null;
-  lastname: string | null;
   position: "GK" | "DEF" | "MID" | "FWD" | null;
   jersey_number: number | null;
   team: { fifa_code: string; flag_url: string | null } | null;
@@ -127,24 +125,18 @@ export function SpecialForm({ teams, players, initial, isLocked, lockAt }: Props
 
   const playerOptions: PlayerOption[] = useMemo(
     () =>
-      players.map((p) => {
-        // api-football's /players/squads only ships short names ("T. Payne").
-        // We cache firstname/lastname via /players/profiles so a user typing
-        // "Tim" or "Timothy" finds "T. Payne". Feed both into keywords.
-        const keywords = [
-          p.lastname,
-          p.firstname,
-          p.team?.fifa_code,
-          p.position,
-        ].filter((k): k is string => !!k);
-        return {
-          value: String(p.id),
-          label: p.name,
-          searchText: `${p.team?.fifa_code ?? ""} ${p.position ?? ""}`,
-          keywords,
-          player: p,
-        };
-      }),
+      players.map((p) => ({
+        value: String(p.id),
+        label: p.name,
+        // Searchable by team code + position. Surname is already in `name`
+        // (api-football ships "T. Payne", "L. Messi" — the substringFilter
+        // normalizes that to "t payne" / "l messi", so typing "payne" or
+        // "messi" hits). First names aren't indexed by design: same-surname
+        // ambiguities get disambiguated by the country flag / jersey number
+        // shown in each row.
+        searchText: `${p.team?.fifa_code ?? ""} ${p.position ?? ""}`,
+        player: p,
+      })),
     [players],
   );
 
