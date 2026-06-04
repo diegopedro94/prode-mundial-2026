@@ -19,6 +19,7 @@
     "seed:teams": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-teams.ts",
     "seed:fixtures": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-fixtures.ts",
     "seed:players": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/seed-players.ts",
+    "enrich:players": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/enrich-players.ts",
     "verify:rosters": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/verify-rosters.ts",
     "sync:rosters": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/sync-rosters-from-wp.ts",
     "sync:results": "tsx --env-file=.env --env-file=.env.local --tsconfig=tsconfig.scripts.json scripts/sync-results.ts"

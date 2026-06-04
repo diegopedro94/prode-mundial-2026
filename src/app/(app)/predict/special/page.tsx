@@ -12,6 +12,8 @@ type TeamRow = {
 type PlayerRow = {
   id: number;
   name: string;
+  firstname: string | null;
+  lastname: string | null;
   position: "GK" | "DEF" | "MID" | "FWD" | null;
   jersey_number: number | null;
   team: { fifa_code: string; flag_url: string | null } | null;
@@ -39,7 +41,7 @@ export default async function PredictSpecialPage() {
     supabase
       .from("players")
       .select(
-        `id, name, position, jersey_number,
+        `id, name, firstname, lastname, position, jersey_number,
          team:teams!team_id(fifa_code, flag_url)`,
       )
       .eq("is_in_official_roster", true)

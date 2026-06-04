@@ -17,6 +17,8 @@ type Team = {
 type Player = {
   id: number;
   name: string;
+  firstname: string | null;
+  lastname: string | null;
   position: "GK" | "DEF" | "MID" | "FWD" | null;
   jersey_number: number | null;
   team: { fifa_code: string; flag_url: string | null } | null;
@@ -117,7 +119,7 @@ export function SpecialForm({ teams, players, initial, isLocked, lockAt }: Props
         label: teamName(t.fifa_code, t.name),
         // Index Spanish name + English fallback + fifa code so the search
         // works whether the user types "Brasil", "Brazil", or "BRA".
-        searchText: `${t.name} ${t.fifa_code}`,
+        keywords: [t.name, t.fifa_code],
         team: t,
       })),
     [teams],
@@ -125,12 +127,24 @@ export function SpecialForm({ teams, players, initial, isLocked, lockAt }: Props
 
   const playerOptions: PlayerOption[] = useMemo(
     () =>
-      players.map((p) => ({
-        value: String(p.id),
-        label: p.name,
-        searchText: `${p.team?.fifa_code ?? ""} ${p.position ?? ""}`,
-        player: p,
-      })),
+      players.map((p) => {
+        // api-football's /players/squads only ships short names ("T. Payne").
+        // We cache firstname/lastname via /players/profiles so a user typing
+        // "Tim" or "Timothy" finds "T. Payne". Feed both into keywords.
+        const keywords = [
+          p.lastname,
+          p.firstname,
+          p.team?.fifa_code,
+          p.position,
+        ].filter((k): k is string => !!k);
+        return {
+          value: String(p.id),
+          label: p.name,
+          searchText: `${p.team?.fifa_code ?? ""} ${p.position ?? ""}`,
+          keywords,
+          player: p,
+        };
+      }),
     [players],
   );
 

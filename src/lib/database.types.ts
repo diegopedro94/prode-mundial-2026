@@ -245,27 +245,33 @@ export type Database = {
       players: {
         Row: {
           external_id: number | null
+          firstname: string | null
           id: number
           is_in_official_roster: boolean
           jersey_number: number | null
+          lastname: string | null
           name: string
           position: Database["public"]["Enums"]["player_position"] | null
           team_id: number
         }
         Insert: {
           external_id?: number | null
+          firstname?: string | null
           id?: number
           is_in_official_roster?: boolean
           jersey_number?: number | null
+          lastname?: string | null
           name: string
           position?: Database["public"]["Enums"]["player_position"] | null
           team_id: number
         }
         Update: {
           external_id?: number | null
+          firstname?: string | null
           id?: number
           is_in_official_roster?: boolean
           jersey_number?: number | null
+          lastname?: string | null
           name?: string
           position?: Database["public"]["Enums"]["player_position"] | null
           team_id?: number

@@ -22,9 +22,41 @@ import {
 export type ComboboxOption = {
   value: string;
   label: string;
-  /** Concatenated against `label` for the case-insensitive search index. */
+  /** Extra tokens appended to the search index (FIFA code, position, etc.). */
   searchText?: string;
+  /** Additional aliases the item should match against — typically the
+   *  surname extracted from the player name, the player's first name, etc. */
+  keywords?: string[];
 };
+
+/** Strip accents + punctuation + lowercase so "Martínez" matches "martinez"
+ *  and "T. Payne" matches "t payne". */
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\p{L}\p{N} ]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/** Substring match across the value + keywords. Replaces cmdk's default
+ *  contiguous fuzzy match, which made surname searches unforgiving ("tim"
+ *  against "t. payne" scored 0 even though the user wanted Tim Payne). */
+export function substringFilter(
+  value: string,
+  search: string,
+  keywords?: string[],
+): number {
+  const needle = normalize(search);
+  if (!needle) return 1;
+  const haystack = normalize(`${value} ${(keywords ?? []).join(" ")}`);
+  // Each whitespace-separated token of the query must appear somewhere in the
+  // haystack. Lets the user type "messi argentina" or "tim payne" in any
+  // order and still match.
+  return needle.split(" ").every((tok) => haystack.includes(tok)) ? 1 : 0;
+}
 
 type Props<T extends ComboboxOption> = {
   options: T[];
@@ -80,7 +112,7 @@ export function Combobox<T extends ComboboxOption>({
         className="w-[var(--radix-popover-trigger-width)] p-0"
         align="start"
       >
-        <Command>
+        <Command filter={substringFilter}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList className="max-h-[280px]">
             <CommandEmpty>{emptyLabel}</CommandEmpty>
@@ -91,6 +123,7 @@ export function Combobox<T extends ComboboxOption>({
                   <CommandItem
                     key={option.value}
                     value={`${option.label} ${option.searchText ?? ""}`}
+                    keywords={option.keywords}
                     onSelect={() => {
                       onChange(isSelected ? null : option.value);
                       setOpen(false);
