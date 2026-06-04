@@ -10,6 +10,7 @@ const SECTIONS = [
   { href: "/admin/matches", label: "Partidos" },
   { href: "/admin/rounds", label: "Rondas" },
   { href: "/admin/rosters", label: "Rosters" },
+  { href: "/admin/top-scorers", label: "Goleadores" },
   { href: "/admin/allowed-emails", label: "Admins" },
   { href: "/admin/sync", label: "Sync" },
   { href: "/admin/audit", label: "Audit" },

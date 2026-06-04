@@ -5,6 +5,7 @@ import {
   ClipboardList,
   RefreshCw,
   ScrollText,
+  Target,
   Trophy,
   Users,
 } from "lucide-react";
@@ -40,6 +41,13 @@ const TILES: Tile[] = [
     href: "/admin/rosters",
     icon: <Trophy className="h-5 w-5" />,
     accent: "text-amber-600 dark:text-amber-400",
+  },
+  {
+    title: "Goleadores",
+    description: "Tabla de goles acumulados (resuelve el especial de goleador).",
+    href: "/admin/top-scorers",
+    icon: <Target className="h-5 w-5" />,
+    accent: "text-emerald-600 dark:text-emerald-400",
   },
   {
     title: "Admins",

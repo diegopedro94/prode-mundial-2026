@@ -104,6 +104,61 @@ export type Database = {
           },
         ]
       }
+      goals: {
+        Row: {
+          created_at: string
+          id: number
+          is_own_goal: boolean
+          is_penalty: boolean
+          match_id: number
+          minute: number | null
+          player_id: number
+          team_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          is_own_goal?: boolean
+          is_penalty?: boolean
+          match_id: number
+          minute?: number | null
+          player_id: number
+          team_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          is_own_goal?: boolean
+          is_penalty?: boolean
+          match_id?: number
+          minute?: number | null
+          player_id?: number
+          team_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           away_score: number | null
@@ -474,6 +529,22 @@ export type Database = {
           exact_count: number
           scored_count: number
           predictions_count: number
+        }[]
+      }
+      get_top_scorers: {
+        Args: {
+          limit_count?: number
+        }
+        Returns: {
+          player_id: number
+          player_name: string
+          player_position: Database["public"]["Enums"]["player_position"]
+          team_id: number
+          team_name: string
+          team_fifa_code: string
+          team_flag_url: string
+          goals_count: number
+          is_in_official_roster: boolean
         }[]
       }
       is_admin: {
