@@ -3,18 +3,42 @@ import { teamName } from "@/lib/teams/i18n";
 
 import { LockRostersButton } from "./lock-rosters-button";
 
+// Players can exceed 1000 rows (48 teams × ~26 players + leftovers), which
+// hits Supabase's default max_rows cap. Force the route dynamic + paginate
+// the query so the counters always reflect the real DB state.
+export const dynamic = "force-dynamic";
+
 type TeamRow = { id: number; name: string; fifa_code: string };
 type PlayerRow = { team_id: number; is_in_official_roster: boolean };
 
+const PAGE_SIZE = 1000;
+
+async function fetchAllPlayers(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+): Promise<PlayerRow[]> {
+  const rows: PlayerRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("players")
+      .select("team_id, is_in_official_roster")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    rows.push(...(data as PlayerRow[]));
+    if (data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 export default async function AdminRostersPage() {
   const supabase = await createSupabaseServerClient();
-  const [{ data: teamsData }, { data: playersData }] = await Promise.all([
+  const [{ data: teamsData }, players] = await Promise.all([
     supabase.from("teams").select("id, name, fifa_code").order("name"),
-    supabase.from("players").select("team_id, is_in_official_roster"),
+    fetchAllPlayers(supabase),
   ]);
 
   const teams = (teamsData ?? []) as TeamRow[];
-  const players = (playersData ?? []) as PlayerRow[];
 
   const stats = new Map<number, { total: number; locked: number }>();
   for (const p of players) {
