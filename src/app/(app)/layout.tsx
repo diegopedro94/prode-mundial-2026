@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SoccerBall } from "@/components/icons/soccer-ball";
+import { InstallPwaMount } from "@/components/install-pwa-mount";
 import { NavLink } from "@/components/nav-link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -75,6 +76,8 @@ export default async function AppLayout({
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         {children}
       </main>
+
+      <InstallPwaMount />
     </div>
   );
 }

@@ -1,0 +1,191 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Download, Share, Plus, X } from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const DISMISS_KEY = "pwa_install_dismissed_v1";
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
+type InitialState = {
+  isIOS: boolean;
+  visible: boolean;
+  hidden: boolean;
+};
+
+function detectInitial(): InitialState {
+  // This module is dynamic-imported with ssr:false, so window always exists.
+  if (window.localStorage.getItem(DISMISS_KEY) === "1") {
+    return { isIOS: false, visible: false, hidden: true };
+  }
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  if (standalone) {
+    return { isIOS: false, visible: false, hidden: true };
+  }
+  const iOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent);
+  // Android/desktop start hidden until beforeinstallprompt fires.
+  return { isIOS: iOS, visible: iOS, hidden: false };
+}
+
+export function InstallPwaBanner() {
+  const [{ isIOS, hidden }] = useState<InitialState>(detectInitial);
+  const [visible, setVisible] = useState<boolean>(() => detectInitial().visible);
+  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [iosOpen, setIosOpen] = useState(false);
+
+  useEffect(() => {
+    if (hidden || isIOS) return;
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferred(e as BeforeInstallPromptEvent);
+      setVisible(true);
+    };
+    const onInstalled = () => {
+      setVisible(false);
+      setDeferred(null);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, [hidden, isIOS]);
+
+  const dismiss = () => {
+    setVisible(false);
+    try {
+      window.localStorage.setItem(DISMISS_KEY, "1");
+    } catch {
+      // localStorage might be blocked (private mode in some browsers).
+    }
+  };
+
+  const handleInstall = async () => {
+    if (isIOS) {
+      setIosOpen(true);
+      return;
+    }
+    if (!deferred) return;
+    await deferred.prompt();
+    const { outcome } = await deferred.userChoice;
+    if (outcome === "accepted") {
+      setVisible(false);
+      setDeferred(null);
+    }
+  };
+
+  if (hidden) return null;
+
+  return (
+    <>
+      {visible ? (
+        <div
+          role="region"
+          aria-label="Instalar app"
+          className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-5xl px-3 pb-3 sm:px-6 sm:pb-4"
+        >
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card/95 px-3 py-2.5 shadow-lg backdrop-blur supports-backdrop-filter:bg-card/80">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Download className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">Instalá la app</p>
+              <p className="truncate text-xs text-muted-foreground">
+                Más rápida y siempre a mano en tu pantalla de inicio.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleInstall}
+              className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition active:scale-[0.97] hover:bg-primary/90"
+            >
+              Instalar
+            </button>
+            <button
+              type="button"
+              onClick={dismiss}
+              aria-label="Cerrar"
+              className="shrink-0 rounded-md p-1 text-muted-foreground transition active:scale-[0.96] hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <IosTutorialDialog open={iosOpen} onOpenChange={setIosOpen} />
+    </>
+  );
+}
+
+function IosTutorialDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Agregar a la pantalla de inicio</DialogTitle>
+          <DialogDescription>
+            En iPhone hay que hacerlo desde Safari en 3 pasos.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ol className="space-y-3 text-sm">
+          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              1
+            </span>
+            <div className="flex-1">
+              <p className="font-medium">Tocá el ícono de Compartir</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Está en la barra inferior de Safari.
+              </p>
+            </div>
+            <Share className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+          </li>
+          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              2
+            </span>
+            <div className="flex-1">
+              <p className="font-medium">Elegí &quot;Agregar a inicio&quot;</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Bajá un poco en el menú hasta verlo.
+              </p>
+            </div>
+            <Plus className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
+          </li>
+          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              3
+            </span>
+            <div className="flex-1">
+              <p className="font-medium">Tocá &quot;Agregar&quot;</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Listo, abrila desde el ícono del Prode en tu home.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </DialogContent>
+    </Dialog>
+  );
+}
