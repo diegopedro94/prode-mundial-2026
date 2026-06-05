@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Download, Plus, Share, X } from "lucide-react";
+import { Copy, Download, MoreVertical, Plus, Share, X } from "lucide-react";
 
 import {
   Dialog,
@@ -44,10 +44,14 @@ function detectInitial(): InitialState {
   // PWA — the share-sheet add-to-home creates a Chrome shortcut, not a
   // standalone app. Redirect those users to Safari.
   const isIOSNonSafari = isIOS && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+  // Banner shows on every visit until the user installs (display-mode flips to
+  // standalone) or explicitly dismisses (localStorage). We don't gate the
+  // banner on `beforeinstallprompt` because Chrome's anti-spam heuristic
+  // refuses to re-fire that event for ~90 days after a single prompt.
   return {
     isIOS,
     iosFlavor: isIOSNonSafari ? "other" : "safari",
-    visible: isIOS,
+    visible: true,
     hidden: false,
   };
 }
@@ -57,13 +61,13 @@ export function InstallPwaBanner() {
   const [visible, setVisible] = useState<boolean>(() => detectInitial().visible);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosOpen, setIosOpen] = useState(false);
+  const [chromeFallbackOpen, setChromeFallbackOpen] = useState(false);
 
   useEffect(() => {
     if (hidden || isIOS) return;
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
-      setVisible(true);
     };
     const onInstalled = () => {
       setVisible(false);
@@ -91,7 +95,12 @@ export function InstallPwaBanner() {
       setIosOpen(true);
       return;
     }
-    if (!deferred) return;
+    if (!deferred) {
+      // beforeinstallprompt didn't fire (Chrome already prompted in a previous
+      // session, or the browser doesn't support it). Show fallback steps.
+      setChromeFallbackOpen(true);
+      return;
+    }
     await deferred.prompt();
     const { outcome } = await deferred.userChoice;
     if (outcome === "accepted") {
@@ -139,7 +148,67 @@ export function InstallPwaBanner() {
         </div>
       ) : null}
       <IosTutorialDialog open={iosOpen} onOpenChange={setIosOpen} flavor={iosFlavor} />
+      <ChromeFallbackDialog open={chromeFallbackOpen} onOpenChange={setChromeFallbackOpen} />
     </>
+  );
+}
+
+function ChromeFallbackDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Instalar desde el menú del navegador</DialogTitle>
+          <DialogDescription>
+            En Chrome / Edge / Samsung Internet la opción está en el menú.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ol className="space-y-3 text-sm">
+          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              1
+            </span>
+            <div className="flex-1">
+              <p className="font-medium">Abrí el menú</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Los 3 puntitos arriba a la derecha.
+              </p>
+            </div>
+            <MoreVertical className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
+          </li>
+          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              2
+            </span>
+            <div className="flex-1">
+              <p className="font-medium">Elegí &quot;Instalar app&quot;</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                A veces aparece como &quot;Agregar a pantalla principal&quot;.
+              </p>
+            </div>
+            <Download className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
+          </li>
+          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              3
+            </span>
+            <div className="flex-1">
+              <p className="font-medium">Confirmá &quot;Instalar&quot;</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Queda como app en tu home, sin barra de URL.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </DialogContent>
+    </Dialog>
   );
 }
 
