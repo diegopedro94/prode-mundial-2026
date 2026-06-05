@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share, Plus, X } from "lucide-react";
+import { Copy, Download, Plus, Share, X } from "lucide-react";
 
 import {
   Dialog,
@@ -18,8 +18,11 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+type IosFlavor = "safari" | "other";
+
 type InitialState = {
   isIOS: boolean;
+  iosFlavor: IosFlavor;
   visible: boolean;
   hidden: boolean;
 };
@@ -27,21 +30,30 @@ type InitialState = {
 function detectInitial(): InitialState {
   // This module is dynamic-imported with ssr:false, so window always exists.
   if (window.localStorage.getItem(DISMISS_KEY) === "1") {
-    return { isIOS: false, visible: false, hidden: true };
+    return { isIOS: false, iosFlavor: "safari", visible: false, hidden: true };
   }
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches ||
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
   if (standalone) {
-    return { isIOS: false, visible: false, hidden: true };
+    return { isIOS: false, iosFlavor: "safari", visible: false, hidden: true };
   }
-  const iOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent);
-  // Android/desktop start hidden until beforeinstallprompt fires.
-  return { isIOS: iOS, visible: iOS, hidden: false };
+  const ua = window.navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  // Chrome/Firefox/Edge/Opera on iOS still use WebKit but can't install a true
+  // PWA — the share-sheet add-to-home creates a Chrome shortcut, not a
+  // standalone app. Redirect those users to Safari.
+  const isIOSNonSafari = isIOS && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+  return {
+    isIOS,
+    iosFlavor: isIOSNonSafari ? "other" : "safari",
+    visible: isIOS,
+    hidden: false,
+  };
 }
 
 export function InstallPwaBanner() {
-  const [{ isIOS, hidden }] = useState<InitialState>(detectInitial);
+  const [{ isIOS, iosFlavor, hidden }] = useState<InitialState>(detectInitial);
   const [visible, setVisible] = useState<boolean>(() => detectInitial().visible);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosOpen, setIosOpen] = useState(false);
@@ -126,7 +138,7 @@ export function InstallPwaBanner() {
           </div>
         </div>
       ) : null}
-      <IosTutorialDialog open={iosOpen} onOpenChange={setIosOpen} />
+      <IosTutorialDialog open={iosOpen} onOpenChange={setIosOpen} flavor={iosFlavor} />
     </>
   );
 }
@@ -134,58 +146,142 @@ export function InstallPwaBanner() {
 function IosTutorialDialog({
   open,
   onOpenChange,
+  flavor,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  flavor: IosFlavor;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Agregar a la pantalla de inicio</DialogTitle>
-          <DialogDescription>
-            En iPhone hay que hacerlo desde Safari en 3 pasos.
-          </DialogDescription>
-        </DialogHeader>
-
-        <ol className="space-y-3 text-sm">
-          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-              1
-            </span>
-            <div className="flex-1">
-              <p className="font-medium">Tocá el ícono de Compartir</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Está en la barra inferior de Safari.
-              </p>
-            </div>
-            <Share className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
-          </li>
-          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-              2
-            </span>
-            <div className="flex-1">
-              <p className="font-medium">Elegí &quot;Agregar a inicio&quot;</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Bajá un poco en el menú hasta verlo.
-              </p>
-            </div>
-            <Plus className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
-          </li>
-          <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-              3
-            </span>
-            <div className="flex-1">
-              <p className="font-medium">Tocá &quot;Agregar&quot;</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Listo, abrila desde el ícono del Prode en tu home.
-              </p>
-            </div>
-          </li>
-        </ol>
+        {flavor === "other" ? (
+          <NonSafariIosContent />
+        ) : (
+          <SafariIosContent />
+        )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SafariIosContent() {
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Agregar a la pantalla de inicio</DialogTitle>
+        <DialogDescription>
+          En iPhone hay que hacerlo desde Safari en 3 pasos.
+        </DialogDescription>
+      </DialogHeader>
+
+      <ol className="space-y-3 text-sm">
+        <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            1
+          </span>
+          <div className="flex-1">
+            <p className="font-medium">Tocá el ícono de Compartir</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Está en la barra inferior de Safari.
+            </p>
+          </div>
+          <Share className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+        </li>
+        <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            2
+          </span>
+          <div className="flex-1">
+            <p className="font-medium">Elegí &quot;Agregar a inicio&quot;</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Bajá un poco en el menú hasta verlo.
+            </p>
+          </div>
+          <Plus className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
+        </li>
+        <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            3
+          </span>
+          <div className="flex-1">
+            <p className="font-medium">Tocá &quot;Agregar&quot;</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Listo, abrila desde el ícono del Prode en tu home.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </>
+  );
+}
+
+function NonSafariIosContent() {
+  const [copied, setCopied] = useState(false);
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // clipboard may be blocked; leave the user to copy from the URL bar.
+    }
+  };
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Abrí esta página en Safari</DialogTitle>
+        <DialogDescription>
+          En iPhone, solo Safari puede instalar la app de verdad. Chrome / Firefox
+          / Edge crean un acceso directo distinto.
+        </DialogDescription>
+      </DialogHeader>
+
+      <ol className="space-y-3 text-sm">
+        <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            1
+          </span>
+          <div className="flex-1">
+            <p className="font-medium">Copiá el link</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Y pegalo en Safari (o tocá &quot;...&quot; → &quot;Abrir en Safari&quot;).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={copyUrl}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition active:scale-[0.97] hover:bg-primary/20"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? "¡Copiado!" : "Copiar"}
+          </button>
+        </li>
+        <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            2
+          </span>
+          <div className="flex-1">
+            <p className="font-medium">Una vez en Safari, tocá Compartir</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              El ícono de la barra inferior.
+            </p>
+          </div>
+          <Share className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+        </li>
+        <li className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            3
+          </span>
+          <div className="flex-1">
+            <p className="font-medium">&quot;Agregar a inicio&quot; → &quot;Agregar&quot;</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Listo, queda como app en el home.
+            </p>
+          </div>
+          <Plus className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
+        </li>
+      </ol>
+    </>
   );
 }

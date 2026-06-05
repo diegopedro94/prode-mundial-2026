@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono, Bricolage_Grotesque } from "next/font/google";
+
+import { InstallPwaMount } from "@/components/install-pwa-mount";
+
 import "./globals.css";
 
 // Body — warm geometric sans with personality, way friendlier than Geist for
@@ -52,7 +55,10 @@ export default function RootLayout({
       lang="es-AR"
       className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <InstallPwaMount />
+      </body>
     </html>
   );
 }
