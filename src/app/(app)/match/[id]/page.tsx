@@ -78,7 +78,17 @@ export default async function MatchDetailPage({
     .eq("match_id", matchId);
   const predictions = (predsData ?? []) as unknown as PredictionRow[];
 
+  // Admin can see everyone's predictions at any time (RLS allows it for them;
+  // the UI just needs to surface them pre-kickoff too).
+  const { data: myProfile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", meId)
+    .maybeSingle<{ is_admin: boolean }>();
+  const isAdmin = myProfile?.is_admin === true;
+
   const kickoffPassed = new Date(match.scheduled_at) <= new Date();
+  const canSeeOthers = kickoffPassed || isAdmin;
   const myPrediction = predictions.find((p) => p.user_id === meId) ?? null;
   const othersPredictions = predictions
     .filter((p) => p.user_id !== meId)
@@ -143,11 +153,18 @@ export default async function MatchDetailPage({
         )}
       </div>
 
-      {kickoffPassed ? (
+      {canSeeOthers ? (
         <div className="space-y-3">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Predicciones de los demás
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Predicciones de los demás
+            </h2>
+            {!kickoffPassed && isAdmin ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                vista admin · pre-kickoff
+              </span>
+            ) : null}
+          </div>
           {othersPredictions.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground">
               Nadie más cargó predicción.

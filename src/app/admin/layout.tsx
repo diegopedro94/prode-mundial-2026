@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 const SECTIONS = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/matches", label: "Partidos" },
+  { href: "/admin/users", label: "Jugadores" },
   { href: "/admin/rounds", label: "Rondas" },
   { href: "/admin/rosters", label: "Rosters" },
   { href: "/admin/top-scorers", label: "Goleadores" },

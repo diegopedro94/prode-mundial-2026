@@ -50,6 +50,13 @@ const TILES: Tile[] = [
     accent: "text-emerald-600 dark:text-emerald-400",
   },
   {
+    title: "Jugadores",
+    description: "Predicciones cargadas por cada uno (vista admin).",
+    href: "/admin/users",
+    icon: <Users className="h-5 w-5" />,
+    accent: "text-blue-600 dark:text-blue-400",
+  },
+  {
     title: "Admins",
     description: "Quién tiene acceso al panel del consejo.",
     href: "/admin/allowed-emails",
