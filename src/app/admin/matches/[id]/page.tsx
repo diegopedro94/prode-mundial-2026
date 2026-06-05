@@ -9,6 +9,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { teamName } from "@/lib/teams/i18n";
 
+import { GoalsEditor } from "./goals-editor";
 import { RefreshGoalsButton } from "./refresh-goals-button";
 import { SummaryEditor } from "./summary-editor";
 
@@ -74,6 +75,44 @@ export default async function AdminMatchDetailPage({
     display_name: p.profile?.display_name ?? "—",
   }));
 
+  // Existing goals + the rosters of both teams (for the add-goal selector).
+  const [{ data: goalsData }, { data: rosterData }] = await Promise.all([
+    supabase
+      .from("goals")
+      .select(
+        `id, minute, is_penalty, is_own_goal,
+         player:players!player_id(id, name, jersey_number, position),
+         team:teams!team_id(id, fifa_code, name, flag_url)`,
+      )
+      .eq("match_id", matchId)
+      .order("minute", { nullsFirst: false }),
+    supabase
+      .from("players")
+      .select("id, name, jersey_number, position, team_id")
+      .in("team_id", [match.home_team.id, match.away_team.id])
+      .order("name"),
+  ]);
+
+  type GoalRow = {
+    id: number;
+    minute: number | null;
+    is_penalty: boolean;
+    is_own_goal: boolean;
+    player: { id: number; name: string; jersey_number: number | null; position: string | null } | null;
+    team: { id: number; fifa_code: string; name: string; flag_url: string | null } | null;
+  };
+  type RosterPlayer = {
+    id: number;
+    name: string;
+    jersey_number: number | null;
+    position: "GK" | "DEF" | "MID" | "FWD" | null;
+    team_id: number;
+  };
+  const goals = ((goalsData ?? []) as unknown as GoalRow[]).filter(
+    (g): g is GoalRow & { player: NonNullable<GoalRow["player"]>; team: NonNullable<GoalRow["team"]> } => g.player != null && g.team != null,
+  );
+  const roster = (rosterData ?? []) as RosterPlayer[];
+
   const isKnockout = match.stage !== "group";
 
   // Build the read-only "auto" portion that the editor will combine with the
@@ -124,6 +163,32 @@ export default async function AdminMatchDetailPage({
           ) : null}
         </div>
       </header>
+
+      <GoalsEditor
+        matchId={match.id}
+        homeTeam={{
+          id: match.home_team.id,
+          name: homeName,
+          fifa_code: match.home_team.fifa_code,
+        }}
+        awayTeam={{
+          id: match.away_team.id,
+          name: awayName,
+          fifa_code: match.away_team.fifa_code,
+        }}
+        goals={goals.map((g) => ({
+          id: g.id,
+          minute: g.minute,
+          is_penalty: g.is_penalty,
+          is_own_goal: g.is_own_goal,
+          player_id: g.player.id,
+          player_name: g.player.name,
+          jersey_number: g.player.jersey_number,
+          team_id: g.team.id,
+        }))}
+        roster={roster}
+      />
+
 
       <SummaryEditor
         matchId={match.id}

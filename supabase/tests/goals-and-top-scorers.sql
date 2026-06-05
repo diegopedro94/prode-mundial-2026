@@ -137,4 +137,71 @@ reset role;
 select '✓ 4. RLS: non-admin blocked from inserting goals' as test;
 rollback;
 
+------------------------------------------------------------------------------
+-- 5. Manual goal CRUD: admin can insert and the top-scorers table reflects
+--    the change without re-running any sync.
+------------------------------------------------------------------------------
+begin;
+do $$
+declare
+  m_id int;
+  p_id int;
+  t_id int;
+  pre_count bigint;
+  post_count bigint;
+begin
+  select id into m_id from matches order by scheduled_at limit 1;
+  -- Use the first official player so the row reflects in the get_top_scorers
+  -- result without further setup.
+  update players set is_in_official_roster = true where id =
+    (select id from players order by id limit 1);
+  select id, team_id into p_id, t_id from players order by id limit 1;
+
+  select coalesce(sum(goals_count), 0) into pre_count from get_top_scorers(50);
+
+  -- Insert two normal goals + a penalty + an own goal (own goal should NOT
+  -- show up in get_top_scorers).
+  insert into goals (match_id, player_id, team_id, minute) values
+    (m_id, p_id, t_id, 23),
+    (m_id, p_id, t_id, 67);
+  insert into goals (match_id, player_id, team_id, minute, is_penalty) values
+    (m_id, p_id, t_id, 81, true);
+  insert into goals (match_id, player_id, team_id, minute, is_own_goal) values
+    (m_id, p_id, t_id, 90, true);
+
+  select coalesce(sum(goals_count), 0) into post_count from get_top_scorers(50);
+  assert post_count - pre_count = 3,
+    format('expected 3 new goals counted (own-goal excluded), got %s', post_count - pre_count);
+
+  -- Now delete the penalty — count should drop by 1
+  delete from goals where match_id = m_id and minute = 81;
+  select coalesce(sum(goals_count), 0) into post_count from get_top_scorers(50);
+  assert post_count - pre_count = 2,
+    format('after deleting penalty: expected 2 left, got %s', post_count - pre_count);
+end $$;
+select '✓ 5. manual goal insert/delete updates get_top_scorers' as test;
+rollback;
+
+------------------------------------------------------------------------------
+-- 6. Deleting a match cascades to its goals (FK on delete cascade)
+------------------------------------------------------------------------------
+begin;
+do $$
+declare
+  m_id int;
+  p_id int;
+  t_id int;
+  cnt int;
+begin
+  select id into m_id from matches order by scheduled_at limit 1;
+  select id, team_id into p_id, t_id from players limit 1;
+  insert into goals (match_id, player_id, team_id, minute) values (m_id, p_id, t_id, 15);
+  -- Cascade
+  delete from matches where id = m_id;
+  select count(*) into cnt from goals where match_id = m_id;
+  assert cnt = 0, format('expected cascade to remove goals, %s left', cnt);
+end $$;
+select '✓ 6. delete cascade: removing a match wipes its goals' as test;
+rollback;
+
 select '---- all goals/top-scorers tests passed ----' as banner;

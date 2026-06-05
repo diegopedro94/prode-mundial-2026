@@ -56,3 +56,13 @@ export const allowedEmailSchema = z.object({
 });
 
 export type AllowedEmailInput = z.infer<typeof allowedEmailSchema>;
+
+export const goalSchema = z.object({
+  matchId: z.coerce.number().int().positive(),
+  playerId: z.coerce.number().int().positive(),
+  minute: z.coerce.number().int().min(1).max(130).nullable(),
+  isPenalty: z.boolean().default(false),
+  isOwnGoal: z.boolean().default(false),
+});
+
+export type GoalInput = z.infer<typeof goalSchema>;

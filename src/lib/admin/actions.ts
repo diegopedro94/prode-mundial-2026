@@ -9,9 +9,11 @@ import { loadTeamExternalIndex, syncGoalsForFixture } from "@/lib/sync/goals";
 
 import {
   allowedEmailSchema,
+  goalSchema,
   matchResultSchema,
   roundLockSchema,
   type AllowedEmailInput,
+  type GoalInput,
   type MatchResultInput,
   type RoundLockInput,
 } from "./schemas";
@@ -101,6 +103,57 @@ export async function upsertAllowedEmail(
     });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/allowed-emails");
+  return { ok: true };
+}
+
+export async function addMatchGoal(input: GoalInput): Promise<ActionResult> {
+  const parsed = goalSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+  const supabase = await createSupabaseServerClient();
+
+  // The team_id stored on the goal must match the player's team so the
+  // per-team stats (and the future "did Brasil score?" widgets) stay
+  // consistent. Resolve it here instead of trusting the client.
+  const { data: player, error: playerErr } = await supabase
+    .from("players")
+    .select("team_id")
+    .eq("id", parsed.data.playerId)
+    .maybeSingle<{ team_id: number }>();
+  if (playerErr || !player) {
+    return { ok: false, error: "Jugador inexistente" };
+  }
+
+  const { error } = await supabase.from("goals").insert({
+    match_id: parsed.data.matchId,
+    player_id: parsed.data.playerId,
+    team_id: player.team_id,
+    minute: parsed.data.minute,
+    is_penalty: parsed.data.isPenalty,
+    is_own_goal: parsed.data.isOwnGoal,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/admin/matches/${parsed.data.matchId}`);
+  revalidatePath("/admin/top-scorers");
+  return { ok: true };
+}
+
+export async function deleteMatchGoal(goalId: number): Promise<ActionResult> {
+  if (!Number.isFinite(goalId) || goalId <= 0) {
+    return { ok: false, error: "goalId inválido" };
+  }
+  const supabase = await createSupabaseServerClient();
+  // Capture matchId so we know which path to revalidate.
+  const { data: goal } = await supabase
+    .from("goals")
+    .select("match_id")
+    .eq("id", goalId)
+    .maybeSingle<{ match_id: number }>();
+  const { error } = await supabase.from("goals").delete().eq("id", goalId);
+  if (error) return { ok: false, error: error.message };
+  if (goal?.match_id) revalidatePath(`/admin/matches/${goal.match_id}`);
+  revalidatePath("/admin/top-scorers");
   return { ok: true };
 }
 
