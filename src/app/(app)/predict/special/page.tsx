@@ -1,3 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database } from "@/lib/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { SpecialForm } from "./special-form";
@@ -34,16 +37,12 @@ export default async function PredictSpecialPage() {
   } = await supabase.auth.getUser();
   const userId = user!.id;
 
-  const [teamsRes, playersRes, specialRes, roundRes] = await Promise.all([
+  const [teamsRes, players, specialRes, roundRes] = await Promise.all([
     supabase.from("teams").select("id, name, fifa_code, flag_url").order("name"),
-    supabase
-      .from("players")
-      .select(
-        `id, name, position, jersey_number,
-         team:teams!team_id(fifa_code, flag_url)`,
-      )
-      .eq("is_in_official_roster", true)
-      .order("name"),
+    // Supabase REST caps at 1000 rows per request; the 48 × 26 = 1248 official
+    // players are over that. Paginate so the players from late letters of the
+    // alphabet aren't silently dropped (which was hiding e.g. Courtois).
+    fetchAllPlayers(supabase),
     supabase
       .from("special_predictions")
       .select(
@@ -59,7 +58,6 @@ export default async function PredictSpecialPage() {
   ]);
 
   const teams = (teamsRes.data ?? []) as TeamRow[];
-  const players = (playersRes.data ?? []) as unknown as PlayerRow[];
   const initial = specialRes.data ?? null;
   const lockAt = roundRes.data?.locks_at ?? null;
   const isLocked = lockAt ? new Date(lockAt) <= new Date() : false;
@@ -73,4 +71,26 @@ export default async function PredictSpecialPage() {
       lockAt={lockAt}
     />
   );
+}
+
+async function fetchAllPlayers(
+  supabase: SupabaseClient<Database>,
+): Promise<PlayerRow[]> {
+  const all: PlayerRow[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("players")
+      .select(
+        `id, name, position, jersey_number,
+         team:teams!team_id(fifa_code, flag_url)`,
+      )
+      .eq("is_in_official_roster", true)
+      .order("name")
+      .range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    all.push(...(data as unknown as PlayerRow[]));
+    if (data.length < PAGE) break;
+  }
+  return all;
 }
