@@ -66,3 +66,10 @@ export const goalSchema = z.object({
 });
 
 export type GoalInput = z.infer<typeof goalSchema>;
+
+export const setUserAdminSchema = z.object({
+  userId: z.string().uuid(),
+  isAdmin: z.boolean(),
+});
+
+export type SetUserAdminInput = z.infer<typeof setUserAdminSchema>;

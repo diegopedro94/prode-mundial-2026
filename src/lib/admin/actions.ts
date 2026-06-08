@@ -12,10 +12,12 @@ import {
   goalSchema,
   matchResultSchema,
   roundLockSchema,
+  setUserAdminSchema,
   type AllowedEmailInput,
   type GoalInput,
   type MatchResultInput,
   type RoundLockInput,
+  type SetUserAdminInput,
 } from "./schemas";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -248,6 +250,56 @@ export async function lockAllRosters(): Promise<ActionResult> {
   });
 
   revalidatePath("/admin/rosters");
+  return { ok: true };
+}
+
+export async function setUserAdmin(input: SetUserAdminInput): Promise<ActionResult> {
+  const parsed = setUserAdminSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+  const { userId, isAdmin } = parsed.data;
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "No hay sesión" };
+
+  // Self-demotion would leave us potentially unable to undo the change.
+  // RLS already guarantees only admins can reach this code path.
+  if (user.id === userId && !isAdmin) {
+    return { ok: false, error: "No te podés sacar el admin a vos mismo." };
+  }
+
+  const { data: before } = await supabase
+    .from("profiles")
+    .select("is_admin, display_name")
+    .eq("id", userId)
+    .maybeSingle<{ is_admin: boolean; display_name: string }>();
+  if (!before) return { ok: false, error: "Usuario inexistente" };
+  if (before.is_admin === isAdmin) {
+    // Idempotent no-op; nothing to write.
+    return { ok: true };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_admin: isAdmin })
+    .eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor_id: user.id,
+    action: isAdmin ? "user.promote_admin" : "user.demote_admin",
+    entity: "profiles",
+    entity_id: userId,
+    before: { is_admin: before.is_admin, display_name: before.display_name },
+    after: { is_admin: isAdmin },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
   return { ok: true };
 }
 

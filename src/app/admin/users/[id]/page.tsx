@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Shield, Trophy } from "lucide-react";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { teamName } from "@/lib/teams/i18n";
+
+import { AdminToggle } from "./admin-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,11 @@ export default async function AdminUserDetailPage({
     .eq("id", id)
     .maybeSingle<ProfileRow>();
   if (!profileData) notFound();
+
+  const {
+    data: { user: meUser },
+  } = await supabase.auth.getUser();
+  const isSelf = meUser?.id === profileData.id;
 
   const [{ data: predsData }, { data: specialData }] = await Promise.all([
     supabase
@@ -142,17 +149,31 @@ export default async function AdminUserDetailPage({
         Volver a jugadores
       </Link>
 
-      <header className="flex items-center gap-4">
+      <header className="flex flex-wrap items-start gap-4">
         <Avatar name={profileData.display_name} avatarUrl={profileData.avatar_url} size="lg" />
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {profileData.display_name}
-          </h1>
-          <p className="text-sm text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+              {profileData.display_name}
+            </h1>
+            {profileData.is_admin ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <Shield className="h-3 w-3" />
+                Admin
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
             {predictions.length} predicciones cargadas · {totalPoints} pts ·{" "}
             {exactCount} exactos / {finishedCount} jugados
           </p>
         </div>
+        <AdminToggle
+          userId={profileData.id}
+          isAdmin={profileData.is_admin}
+          isSelf={isSelf}
+          displayName={profileData.display_name}
+        />
       </header>
 
       {specialData ? (
