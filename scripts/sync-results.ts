@@ -5,94 +5,28 @@
  * Idempotent: only writes rows whose state actually changed.
  *
  * Logs every run to `sync_log` so /admin/sync can show status.
+ *
+ * The actual sync logic lives in `src/lib/sync/run-sync.ts` so the same
+ * function can be invoked from a server action (e.g. when a user opens /live
+ * while GHA cron is delayed by GitHub's load).
  */
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import {
-  hasApiErrors,
-  parseApiFixture,
-  type ApiFixturePayload,
-} from "@/lib/sync/parse-fixture";
-import {
-  loadTeamExternalIndex,
-  syncGoalsForFixture,
-} from "@/lib/sync/goals";
-
-const LEAGUE_WORLD_CUP = 1;
-const SEASON = 2026;
-const TIMEZONE = "America/Argentina/Buenos_Aires";
-
-type ApiFixture = ApiFixturePayload & {
-  fixture: ApiFixturePayload["fixture"] & { date: string };
-};
-
-function todayInTz(): string {
-  // SYNC_OVERRIDE_DATE (YYYY-MM-DD) lets us test the sync path against a
-  // specific match day before the tournament starts.
-  const override = process.env.SYNC_OVERRIDE_DATE;
-  if (override) return override;
-  return new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-}
-
-async function fetchFixtures(date: string): Promise<{
-  fixtures: ApiFixture[];
-  requestsRemaining: number | null;
-}> {
-  const apiKey = process.env.API_FOOTBALL_KEY;
-  if (!apiKey) throw new Error("API_FOOTBALL_KEY is not set");
-
-  const url = new URL("https://v3.football.api-sports.io/fixtures");
-  url.searchParams.set("league", String(LEAGUE_WORLD_CUP));
-  url.searchParams.set("season", String(SEASON));
-  url.searchParams.set("date", date);
-  url.searchParams.set("timezone", TIMEZONE);
-
-  const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
-  if (!res.ok) {
-    throw new Error(`api-football /fixtures returned ${res.status}: ${await res.text()}`);
-  }
-  const remainingHeader = res.headers.get("x-ratelimit-requests-remaining");
-  const requestsRemaining = remainingHeader ? Number(remainingHeader) : null;
-  const body = (await res.json()) as { response: ApiFixture[]; errors?: unknown };
-  // api-football returns 200 + empty response when plan/token rejections hit.
-  // Treat the envelope errors as hard failure so sync_log captures it.
-  if (hasApiErrors(body)) {
-    throw new Error(`api-football /fixtures envelope errors: ${JSON.stringify(body.errors)}`);
-  }
-  return { fixtures: body.response ?? [], requestsRemaining };
-}
+import { runSync } from "@/lib/sync/run-sync";
 
 async function main() {
   const supabase = createSupabaseAdminClient();
-  const date = todayInTz();
+  const overrideDate = process.env.SYNC_OVERRIDE_DATE;
 
-  // We only spend api-football quota when something is actually about to
-  // change. That means:
-  //   (a) at least one match is already in 'live' status, OR
-  //   (b) at least one match scheduled to kick off in the next ~5 min.
-  // Otherwise we keep the cron tick cheap and silent (no log, no DB write).
-  // The 5 min window matches the cron cadence — we want the poll BEFORE
-  // kickoff so the very first scheduled→live transition catches the opening
-  // minutes.
-  const now = new Date();
-  const imminentCutoff = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
-  const { data: relevant, error: probeError } = await supabase
-    .from("matches")
-    .select("id, status, scheduled_at")
-    .or(`status.eq.live,and(status.eq.scheduled,scheduled_at.lte.${imminentCutoff})`)
-    .limit(1);
-  if (probeError) {
-    console.error("DB probe failed:", probeError.message);
-    process.exit(1);
-  }
-  if (!relevant || relevant.length === 0) {
-    console.log(
-      `No live or imminent (<5 min) matches for ${date}, exiting without polling.`,
-    );
+  // Probe first (cheap query, no API hit). Skip logging entirely when there's
+  // nothing in flight so sync_log stays signal-only.
+  const peek = await runSyncPeek(supabase, overrideDate);
+  if (peek.kind === "skipped") {
+    console.log(`Sync skipped: ${peek.reason}`);
     return;
   }
 
-  // Start the sync_log entry only when we're actually going to do work.
+  // Insert the running row only when we're committed to spending a request.
   const { data: logRow, error: logInsertError } = await supabase
     .from("sync_log")
     .insert({ status: "running" })
@@ -105,103 +39,32 @@ async function main() {
   const syncLogId = logRow!.id;
 
   try {
-    console.log(`Fetching fixtures for ${date}...`);
-    const { fixtures, requestsRemaining } = await fetchFixtures(date);
-    console.log(`  -> ${fixtures.length} fixtures`);
-    console.log(`  -> ${requestsRemaining ?? "?"} api-football requests remaining today`);
-
-    if (fixtures.length === 0) {
+    const result = await runSync(supabase, { overrideDate });
+    if (result.kind === "skipped") {
       await supabase
         .from("sync_log")
         .update({
           status: "success",
           finished_at: new Date().toISOString(),
           fixtures_processed: 0,
-          requests_remaining: requestsRemaining,
+          error_message: `skipped: ${result.reason}`,
         })
         .eq("id", syncLogId);
       return;
     }
-
-    // Map external team ids → internal ids so we can fill winner / pk_winner.
-    const externalToInternal = await loadTeamExternalIndex(supabase);
-
-    let updated = 0;
-    let skipped = 0;
-    let goalsUpserted = 0;
-    for (const fixture of fixtures) {
-      const home = externalToInternal.get(fixture.teams.home.id);
-      const away = externalToInternal.get(fixture.teams.away.id);
-      if (!home || !away) {
-        console.warn(
-          `  skip fixture ${fixture.fixture.id}: home/away team not in DB`,
-        );
-        skipped += 1;
-        continue;
-      }
-      const parsed = parseApiFixture(fixture, home, away);
-      if (parsed.kind === "skip") {
-        console.warn(`  skip fixture ${fixture.fixture.id}: ${parsed.reason}`);
-        skipped += 1;
-        continue;
-      }
-      const update = parsed.update;
-
-      // The audit_match_changes trigger logs every UPDATE with actor=null
-      // (service role). The recalc_predictions_for_match trigger recomputes
-      // predictions.points when status flips to 'finished'.
-      const { error } = await supabase
-        .from("matches")
-        .update(update)
-        .eq("external_id", fixture.fixture.id);
-      if (error) {
-        console.warn(`  fixture ${fixture.fixture.id} update failed:`, error.message);
-        continue;
-      }
-      updated += 1;
-
-      // Capture goleadores for finished matches that don't have any goals in
-      // our DB yet. Corrections after the fact get a manual "refresh goals"
-      // path from /admin/matches/[id].
-      if (update.status === "finished") {
-        try {
-          const r = await syncGoalsForFixture(
-            supabase,
-            fixture.fixture.id,
-            externalToInternal,
-          );
-          goalsUpserted += r.inserted;
-        } catch (err) {
-          console.warn(
-            `  fixture ${fixture.fixture.id} goals fetch failed:`,
-            err instanceof Error ? err.message : err,
-          );
-        }
-      }
-    }
-    if (goalsUpserted > 0) {
-      console.log(`  -> ${goalsUpserted} goals inserted across finished matches`);
-    }
-    if (skipped > 0) {
-      console.log(`  -> ${skipped} fixtures skipped (see warnings above)`);
-    }
-
-    const errorMessage =
-      skipped > 0 ? `${skipped} fixture(s) skipped — see logs` : null;
-
     await supabase
       .from("sync_log")
       .update({
         status: "success",
         finished_at: new Date().toISOString(),
-        fixtures_processed: fixtures.length,
-        fixtures_updated: updated,
-        requests_remaining: requestsRemaining,
-        error_message: errorMessage,
+        fixtures_processed: result.fixturesProcessed,
+        fixtures_updated: result.fixturesUpdated,
+        requests_remaining: result.requestsRemaining,
       })
       .eq("id", syncLogId);
-
-    console.log(`  -> updated ${updated}/${fixtures.length} match rows`);
+    console.log(
+      `Sync ok: ${result.fixturesUpdated}/${result.fixturesProcessed} updated, ${result.goalsUpserted} goals, ${result.requestsRemaining ?? "?"} reqs left.`,
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Sync failed:", message);
@@ -215,6 +78,30 @@ async function main() {
       .eq("id", syncLogId);
     process.exit(1);
   }
+}
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+
+async function runSyncPeek(
+  supabase: SupabaseClient<Database>,
+  overrideDate: string | undefined,
+): Promise<{ kind: "skipped"; reason: string } | { kind: "go" }> {
+  const now = new Date();
+  const imminentCutoff = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
+  const { data: relevant, error } = await supabase
+    .from("matches")
+    .select("id")
+    .or(`status.eq.live,and(status.eq.scheduled,scheduled_at.lte.${imminentCutoff})`)
+    .limit(1);
+  if (error) throw new Error(`DB probe failed: ${error.message}`);
+  if (!relevant || relevant.length === 0) {
+    return {
+      kind: "skipped",
+      reason: `no live or imminent matches${overrideDate ? ` for ${overrideDate}` : ""}`,
+    };
+  }
+  return { kind: "go" };
 }
 
 main();

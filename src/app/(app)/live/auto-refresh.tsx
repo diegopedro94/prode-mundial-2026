@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
+import { triggerLiveSync } from "@/lib/sync/live-sync-action";
+
 // Drives a soft refresh of the Server Component every `intervalMs`. We rely on
 // router.refresh() (not revalidatePath) so the user keeps their scroll position
 // and the goal list updates in place. A small ticker keeps the "actualizado
@@ -21,11 +23,17 @@ export function AutoRefresh({ intervalMs }: { intervalMs: number }) {
     let lastRefresh = Date.now();
 
     const fire = () => {
-      router.refresh();
-      lastRefresh = Date.now();
-      setSeconds(0);
       setSpinning(true);
-      setTimeout(() => setSpinning(false), 600);
+      // Kick the sync first so the new data is in the DB before we re-render.
+      // It's rate-limited server-side, so most ticks short-circuit cheap.
+      triggerLiveSync()
+        .catch(() => {})
+        .finally(() => {
+          router.refresh();
+          lastRefresh = Date.now();
+          setSeconds(0);
+          setTimeout(() => setSpinning(false), 600);
+        });
     };
 
     const start = () => {
