@@ -11,10 +11,17 @@ import { triggerLiveSync } from "@/lib/sync/live-sync-action";
 // and the goal list updates in place. A small ticker keeps the "actualizado
 // hace Ns" line counting in real time, so the user can tell the page is alive
 // even between cron updates.
+type SyncStatus =
+  | { kind: "idle" }
+  | { kind: "running" }
+  | { kind: "ok"; ran: boolean; reason?: string }
+  | { kind: "error"; message: string };
+
 export function AutoRefresh({ intervalMs }: { intervalMs: number }) {
   const router = useRouter();
   const [seconds, setSeconds] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const [status, setStatus] = useState<SyncStatus>({ kind: "idle" });
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -22,22 +29,36 @@ export function AutoRefresh({ intervalMs }: { intervalMs: number }) {
     let tickTimer: ReturnType<typeof setInterval> | null = null;
     let lastRefresh = Date.now();
 
-    const fire = () => {
+    const fire = async () => {
       setSpinning(true);
-      // Kick the sync first so the new data is in the DB before we re-render.
-      // It's rate-limited server-side, so most ticks short-circuit cheap.
-      triggerLiveSync()
-        .catch(() => {})
-        .finally(() => {
-          router.refresh();
-          lastRefresh = Date.now();
-          setSeconds(0);
-          setTimeout(() => setSpinning(false), 600);
+      setStatus({ kind: "running" });
+      try {
+        const result = await triggerLiveSync();
+        if (result.ok) {
+          setStatus({ kind: "ok", ran: result.ran, reason: result.reason });
+        } else {
+          setStatus({ kind: "error", message: result.error });
+        }
+      } catch (err) {
+        setStatus({
+          kind: "error",
+          message: err instanceof Error ? err.message : String(err),
         });
+      } finally {
+        router.refresh();
+        lastRefresh = Date.now();
+        setSeconds(0);
+        setTimeout(() => setSpinning(false), 600);
+      }
     };
 
     const start = () => {
-      if (!refreshTimer) refreshTimer = setInterval(fire, intervalMs);
+      if (!refreshTimer) {
+        // Fire immediately on mount so the user doesn't have to wait the
+        // full intervalMs to see the first refresh.
+        fire();
+        refreshTimer = setInterval(fire, intervalMs);
+      }
       if (!tickTimer) {
         tickTimer = setInterval(() => {
           setSeconds(Math.max(0, Math.floor((Date.now() - lastRefresh) / 1000)));
@@ -70,9 +91,30 @@ export function AutoRefresh({ intervalMs }: { intervalMs: number }) {
   }, [router, intervalMs]);
 
   return (
-    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-      <RefreshCw className={`h-3 w-3 ${spinning ? "animate-spin text-primary" : ""}`} />
-      <span>actualizado hace {seconds}s</span>
+    <div className="flex flex-col items-end gap-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center gap-1.5">
+        <RefreshCw className={`h-3 w-3 ${spinning ? "animate-spin text-primary" : ""}`} />
+        <span>actualizado hace {seconds}s</span>
+      </div>
+      <StatusBadge status={status} />
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: SyncStatus }) {
+  if (status.kind === "idle") return null;
+  if (status.kind === "running") {
+    return <span className="text-amber-600 dark:text-amber-400">sincronizando...</span>;
+  }
+  if (status.kind === "error") {
+    return (
+      <span title={status.message} className="text-destructive">
+        error: {status.message.slice(0, 30)}
+      </span>
+    );
+  }
+  if (!status.ran) {
+    return <span>rate-limited (60s)</span>;
+  }
+  return <span className="text-emerald-600 dark:text-emerald-400">sync ok</span>;
 }
