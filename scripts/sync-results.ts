@@ -66,22 +66,29 @@ async function main() {
   const supabase = createSupabaseAdminClient();
   const date = todayInTz();
 
-  // Skip the API call when there's nothing scheduled today — saves quota and
-  // keeps sync_log signal-to-noise high.
-  const dayStart = new Date(`${date}T00:00:00-03:00`).toISOString();
-  const dayEnd = new Date(`${date}T23:59:59-03:00`).toISOString();
-  const { data: todays, error: probeError } = await supabase
+  // We only spend api-football quota when something is actually about to
+  // change. That means:
+  //   (a) at least one match is already in 'live' status, OR
+  //   (b) at least one match scheduled to kick off in the next ~5 min.
+  // Otherwise we keep the cron tick cheap and silent (no log, no DB write).
+  // The 5 min window matches the cron cadence — we want the poll BEFORE
+  // kickoff so the very first scheduled→live transition catches the opening
+  // minutes.
+  const now = new Date();
+  const imminentCutoff = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
+  const { data: relevant, error: probeError } = await supabase
     .from("matches")
-    .select("id")
-    .gte("scheduled_at", dayStart)
-    .lt("scheduled_at", dayEnd)
+    .select("id, status, scheduled_at")
+    .or(`status.eq.live,and(status.eq.scheduled,scheduled_at.lte.${imminentCutoff})`)
     .limit(1);
   if (probeError) {
     console.error("DB probe failed:", probeError.message);
     process.exit(1);
   }
-  if (!todays || todays.length === 0) {
-    console.log(`No matches scheduled for ${date}, exiting without polling.`);
+  if (!relevant || relevant.length === 0) {
+    console.log(
+      `No live or imminent (<5 min) matches for ${date}, exiting without polling.`,
+    );
     return;
   }
 

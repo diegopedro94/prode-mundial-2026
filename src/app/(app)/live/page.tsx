@@ -106,13 +106,14 @@ export default async function LivePage() {
 
   return (
     <section className="space-y-6">
-      <AutoRefresh intervalMs={30_000} />
-
-      <header className="flex items-center gap-2">
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          En vivo
-        </h1>
-        {liveMatches.length > 0 ? <LiveDot /> : null}
+      <header className="flex items-end justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            En vivo
+          </h1>
+          {liveMatches.length > 0 ? <LiveDot /> : null}
+        </div>
+        <AutoRefresh intervalMs={30_000} />
       </header>
 
       {liveMatches.length === 0 && finishedMatches.length === 0 ? (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Radio } from "lucide-react";
 
 import { Countdown } from "@/components/countdown";
 import { SoccerBall } from "@/components/icons/soccer-ball";
@@ -11,11 +12,29 @@ const FIRST_KICKOFF_ISO = "2026-06-11T19:00:00Z"; // Mexico — opening match
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1600&q=85&auto=format&fit=crop";
 
+// Once the tournament is rolling, the home page refreshes itself every minute
+// so the live teaser stays current without manual reloads.
+export const revalidate = 60;
+
 export default async function Home() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const now = new Date();
+  const tournamentStarted = now >= new Date(FIRST_KICKOFF_ISO);
+
+  // Only run the cheap "is there a live match right now?" probe once the
+  // tournament has actually started — pointless quota burn beforehand.
+  let liveCount = 0;
+  if (tournamentStarted) {
+    const { count } = await supabase
+      .from("matches")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "live");
+    liveCount = count ?? 0;
+  }
 
   return (
     <main className="relative flex flex-1 flex-col">
@@ -40,18 +59,62 @@ export default async function Home() {
         <h1 className="mt-6 font-display text-4xl font-bold tracking-tight sm:text-6xl">
           Prode entre amigos.
         </h1>
-        <p className="mt-4 max-w-lg text-base text-white/80 sm:text-lg">
-          Cargá tus predicciones de los 104 partidos. El primero que clave la final
-          se hace cargo de los asados hasta Qatar 2030.
-        </p>
 
-        <div className="mt-10 w-full max-w-sm">
-          <Countdown
-            target={FIRST_KICKOFF_ISO}
-            label="Falta para el primer partido"
-            className="rounded-2xl border border-white/15 bg-black/40 p-5 text-white shadow-lg backdrop-blur-md"
-          />
-        </div>
+        {!tournamentStarted ? (
+          <>
+            <p className="mt-4 max-w-lg text-base text-white/80 sm:text-lg">
+              Cargá tus predicciones de los 104 partidos. El primero que clave la final
+              se hace cargo de los asados hasta Qatar 2030.
+            </p>
+            <div className="mt-10 w-full max-w-sm">
+              <Countdown
+                target={FIRST_KICKOFF_ISO}
+                label="Falta para el primer partido"
+                className="rounded-2xl border border-white/15 bg-black/40 p-5 text-white shadow-lg backdrop-blur-md"
+              />
+            </div>
+          </>
+        ) : (
+          <div className="mt-10 w-full max-w-sm">
+            {user ? (
+              <Link
+                href="/live"
+                className="group flex w-full items-center justify-between gap-4 rounded-2xl border border-rose-300/40 bg-rose-500/15 p-5 text-left text-white shadow-lg backdrop-blur-md transition active:scale-[0.98] hover:bg-rose-500/25"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="relative inline-flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
+                  </span>
+                  <div>
+                    <div className="text-sm font-bold uppercase tracking-wider">
+                      {liveCount > 0 ? "En vivo" : "El Mundial arrancó"}
+                    </div>
+                    <div className="mt-0.5 text-xs text-white/80">
+                      {liveCount > 0
+                        ? `${liveCount} partido${liveCount === 1 ? "" : "s"} ahora`
+                        : "Mirá los últimos resultados"}
+                    </div>
+                  </div>
+                </div>
+                <Radio className="h-5 w-5 text-rose-200 transition group-hover:scale-110" />
+              </Link>
+            ) : (
+              <div className="rounded-2xl border border-rose-300/40 bg-rose-500/15 p-5 text-white shadow-lg backdrop-blur-md">
+                <div className="flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wider">
+                  <span className="relative inline-flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
+                  </span>
+                  El Mundial arrancó
+                </div>
+                <div className="mt-1 text-xs text-white/80">
+                  Ingresá para ver el prode y las posiciones.
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           {user ? (

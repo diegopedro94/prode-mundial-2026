@@ -1,26 +1,50 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 
 // Drives a soft refresh of the Server Component every `intervalMs`. We rely on
 // router.refresh() (not revalidatePath) so the user keeps their scroll position
-// and the goal list updates in place.
+// and the goal list updates in place. A small ticker keeps the "actualizado
+// hace Ns" line counting in real time, so the user can tell the page is alive
+// even between cron updates.
 export function AutoRefresh({ intervalMs }: { intervalMs: number }) {
   const router = useRouter();
+  const [seconds, setSeconds] = useState(0);
+  const [spinning, setSpinning] = useState(false);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    let timer: ReturnType<typeof setInterval> | null = null;
+    let refreshTimer: ReturnType<typeof setInterval> | null = null;
+    let tickTimer: ReturnType<typeof setInterval> | null = null;
+    let lastRefresh = Date.now();
+
+    const fire = () => {
+      router.refresh();
+      lastRefresh = Date.now();
+      setSeconds(0);
+      setSpinning(true);
+      setTimeout(() => setSpinning(false), 600);
+    };
 
     const start = () => {
-      if (timer) return;
-      timer = setInterval(() => router.refresh(), intervalMs);
+      if (!refreshTimer) refreshTimer = setInterval(fire, intervalMs);
+      if (!tickTimer) {
+        tickTimer = setInterval(() => {
+          setSeconds(Math.max(0, Math.floor((Date.now() - lastRefresh) / 1000)));
+        }, 1000);
+      }
     };
     const stop = () => {
-      if (!timer) return;
-      clearInterval(timer);
-      timer = null;
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+      if (tickTimer) {
+        clearInterval(tickTimer);
+        tickTimer = null;
+      }
     };
 
     const onVisibility = () => {
@@ -37,5 +61,10 @@ export function AutoRefresh({ intervalMs }: { intervalMs: number }) {
     };
   }, [router, intervalMs]);
 
-  return null;
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <RefreshCw className={`h-3 w-3 ${spinning ? "animate-spin text-primary" : ""}`} />
+      <span>actualizado hace {seconds}s</span>
+    </div>
+  );
 }
