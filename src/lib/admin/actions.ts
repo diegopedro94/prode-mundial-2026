@@ -61,12 +61,26 @@ export async function setMatchResult(input: MatchResultInput): Promise<ActionRes
     winner_team_id: winnerTeamId,
   };
 
+  // If the admin is rolling a match back from "finished" to live/scheduled,
+  // the recalc trigger doesn't fire (it only runs on transitions INTO
+  // finished). Clear the stale points by hand so the leaderboard reflects
+  // the match being un-played again. Doing it before the update keeps the
+  // window where someone could read stale data short.
+  if (v.status !== "finished") {
+    const { error: clearError } = await supabase
+      .from("predictions")
+      .update({ points: null })
+      .eq("match_id", v.matchId);
+    if (clearError) return { ok: false, error: clearError.message };
+  }
+
   const { error } = await supabase.from("matches").update(update).eq("id", v.matchId);
   if (error) return { ok: false, error: error.message };
 
   // The audit trigger has already fired in Postgres. Refresh the page so the admin
   // sees the new values.
   revalidatePath("/admin/matches");
+  revalidatePath("/leaderboard");
   return { ok: true };
 }
 
