@@ -73,3 +73,14 @@ export const setUserAdminSchema = z.object({
 });
 
 export type SetUserAdminInput = z.infer<typeof setUserAdminSchema>;
+
+export const setUserDisplayNameSchema = z.object({
+  userId: z.string().uuid(),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, "El nombre no puede estar vacío")
+    .max(40, "Máximo 40 caracteres"),
+});
+
+export type SetUserDisplayNameInput = z.infer<typeof setUserDisplayNameSchema>;

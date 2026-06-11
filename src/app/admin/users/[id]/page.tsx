@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { teamName } from "@/lib/teams/i18n";
 
 import { AdminToggle } from "./admin-toggle";
+import { DisplayNameEditor } from "./display-name-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -156,6 +157,7 @@ export default async function AdminUserDetailPage({
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
               {profileData.display_name}
             </h1>
+            <DisplayNameEditor userId={profileData.id} current={profileData.display_name} />
             {profileData.is_admin ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                 <Shield className="h-3 w-3" />

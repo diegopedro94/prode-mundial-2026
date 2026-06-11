@@ -13,11 +13,13 @@ import {
   matchResultSchema,
   roundLockSchema,
   setUserAdminSchema,
+  setUserDisplayNameSchema,
   type AllowedEmailInput,
   type GoalInput,
   type MatchResultInput,
   type RoundLockInput,
   type SetUserAdminInput,
+  type SetUserDisplayNameInput,
 } from "./schemas";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -300,6 +302,50 @@ export async function setUserAdmin(input: SetUserAdminInput): Promise<ActionResu
 
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
+  return { ok: true };
+}
+
+export async function setUserDisplayName(
+  input: SetUserDisplayNameInput,
+): Promise<ActionResult> {
+  const parsed = setUserDisplayNameSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+  const { userId, displayName } = parsed.data;
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "No hay sesión" };
+
+  const { data: before } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", userId)
+    .maybeSingle<{ display_name: string }>();
+  if (!before) return { ok: false, error: "Usuario inexistente" };
+  if (before.display_name === displayName) return { ok: true };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ display_name: displayName })
+    .eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor_id: user.id,
+    action: "user.rename",
+    entity: "profiles",
+    entity_id: userId,
+    before: { display_name: before.display_name },
+    after: { display_name: displayName },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  revalidatePath("/leaderboard");
   return { ok: true };
 }
 

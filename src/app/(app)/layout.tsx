@@ -59,6 +59,7 @@ export default async function AppLayout({
         {/* Row 2: tab nav. Scrollable on narrow screens, no scrollbar shown. */}
         <div className="border-t border-border/40">
           <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-2 text-sm sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <NavLink href="/live">En vivo</NavLink>
             <NavLink href="/predict/groups">Grupos</NavLink>
             <NavLink href="/predict/special">Especiales</NavLink>
             <NavLink href="/leaderboard">Posiciones</NavLink>
