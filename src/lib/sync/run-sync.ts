@@ -11,10 +11,6 @@ import {
   syncGoalsForFixture,
 } from "@/lib/sync/goals";
 
-const LEAGUE_WORLD_CUP = 1;
-const SEASON = 2026;
-const TIMEZONE = "America/Argentina/Buenos_Aires";
-
 type ApiFixture = ApiFixturePayload & {
   fixture: ApiFixturePayload["fixture"] & { date: string };
 };
@@ -32,57 +28,73 @@ export type RunSyncResult =
       requestsRemaining: number | null;
     };
 
-function todayInTz(date?: Date): string {
-  return (date ?? new Date()).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-}
+// api-football /fixtures?ids= accepts a dash-separated list, capped at 20.
+// We won't ever hit that during a single live tournament — the worst case
+// would be a knockout day with 4 simultaneous matches.
+const MAX_IDS_PER_REQUEST = 20;
 
-async function fetchFixtures(date: string): Promise<{
+async function fetchFixturesByIds(
+  externalIds: number[],
+): Promise<{
   fixtures: ApiFixture[];
   requestsRemaining: number | null;
 }> {
   const apiKey = process.env.API_FOOTBALL_KEY;
   if (!apiKey) throw new Error("API_FOOTBALL_KEY is not set");
 
-  const url = new URL("https://v3.football.api-sports.io/fixtures");
-  url.searchParams.set("league", String(LEAGUE_WORLD_CUP));
-  url.searchParams.set("season", String(SEASON));
-  url.searchParams.set("date", date);
-  url.searchParams.set("timezone", TIMEZONE);
+  const chunks: number[][] = [];
+  for (let i = 0; i < externalIds.length; i += MAX_IDS_PER_REQUEST) {
+    chunks.push(externalIds.slice(i, i + MAX_IDS_PER_REQUEST));
+  }
 
-  const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
-  if (!res.ok) {
-    throw new Error(`api-football /fixtures returned ${res.status}: ${await res.text()}`);
+  const all: ApiFixture[] = [];
+  let lastRemaining: number | null = null;
+  for (const chunk of chunks) {
+    const url = new URL("https://v3.football.api-sports.io/fixtures");
+    url.searchParams.set("ids", chunk.join("-"));
+
+    const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
+    if (!res.ok) {
+      throw new Error(
+        `api-football /fixtures?ids returned ${res.status}: ${await res.text()}`,
+      );
+    }
+    const remainingHeader = res.headers.get("x-ratelimit-requests-remaining");
+    if (remainingHeader) lastRemaining = Number(remainingHeader);
+    const body = (await res.json()) as { response: ApiFixture[]; errors?: unknown };
+    if (hasApiErrors(body)) {
+      throw new Error(
+        `api-football /fixtures?ids envelope errors: ${JSON.stringify(body.errors)}`,
+      );
+    }
+    all.push(...(body.response ?? []));
   }
-  const remainingHeader = res.headers.get("x-ratelimit-requests-remaining");
-  const requestsRemaining = remainingHeader ? Number(remainingHeader) : null;
-  const body = (await res.json()) as { response: ApiFixture[]; errors?: unknown };
-  if (hasApiErrors(body)) {
-    throw new Error(`api-football /fixtures envelope errors: ${JSON.stringify(body.errors)}`);
-  }
-  return { fixtures: body.response ?? [], requestsRemaining };
+  return { fixtures: all, requestsRemaining: lastRemaining };
 }
 
 /**
- * Probe + sync today's fixtures. Designed to be called from both the GHA
- * cron (scripts/sync-results.ts) and the in-app server action triggered by
- * /live.
+ * Probe the local DB for matches whose state could change in the next few
+ * minutes (already live, or about to kick off), then query api-football for
+ * exactly those fixtures and persist the updates.
+ *
+ * We query by fixture id instead of by date because date-based queries fail
+ * across the BA→UTC midnight boundary: a match that kicks off late evening
+ * ART and ends past midnight UTC falls into "tomorrow" in api-football's
+ * date filter, and the cron silently stops tracking it mid-match.
  *
  * Returns kind=skipped when there's no live or imminent match — caller
  * should treat that as a successful no-op, not an error.
  */
 export async function runSync(
   supabase: SupabaseClient<Database>,
-  options: { overrideDate?: string } = {},
 ): Promise<RunSyncResult> {
-  const date = options.overrideDate ?? todayInTz();
-
   const now = new Date();
   const imminentCutoff = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
   const { data: relevant, error: probeError } = await supabase
     .from("matches")
-    .select("id, status, scheduled_at")
+    .select("id, external_id, status, scheduled_at")
     .or(`status.eq.live,and(status.eq.scheduled,scheduled_at.lte.${imminentCutoff})`)
-    .limit(1);
+    .not("external_id", "is", null);
   if (probeError) {
     throw new Error(`DB probe failed: ${probeError.message}`);
   }
@@ -90,7 +102,11 @@ export async function runSync(
     return { kind: "skipped", reason: "no live or imminent matches" };
   }
 
-  const { fixtures, requestsRemaining } = await fetchFixtures(date);
+  const externalIds = relevant
+    .map((r) => r.external_id)
+    .filter((x): x is number => typeof x === "number");
+
+  const { fixtures, requestsRemaining } = await fetchFixturesByIds(externalIds);
   if (fixtures.length === 0) {
     return {
       kind: "success",

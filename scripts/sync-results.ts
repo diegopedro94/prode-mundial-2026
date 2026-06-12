@@ -1,5 +1,5 @@
 /**
- * Poll api-football for today's fixtures and upsert into `matches`.
+ * Poll api-football for relevant fixtures and upsert into `matches`.
  *
  * Designed to run from a GitHub Actions cron during the tournament window.
  * Idempotent: only writes rows whose state actually changed.
@@ -11,22 +11,23 @@
  * while GHA cron is delayed by GitHub's load).
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database } from "@/lib/database.types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { runSync } from "@/lib/sync/run-sync";
 
 async function main() {
   const supabase = createSupabaseAdminClient();
-  const overrideDate = process.env.SYNC_OVERRIDE_DATE;
 
-  // Probe first (cheap query, no API hit). Skip logging entirely when there's
-  // nothing in flight so sync_log stays signal-only.
-  const peek = await runSyncPeek(supabase, overrideDate);
+  // Cheap probe (no API hit). Skip logging entirely when there's nothing in
+  // flight so sync_log stays signal-only for the cron path.
+  const peek = await runSyncPeek(supabase);
   if (peek.kind === "skipped") {
     console.log(`Sync skipped: ${peek.reason}`);
     return;
   }
 
-  // Insert the running row only when we're committed to spending a request.
   const { data: logRow, error: logInsertError } = await supabase
     .from("sync_log")
     .insert({ status: "running" })
@@ -39,7 +40,7 @@ async function main() {
   const syncLogId = logRow!.id;
 
   try {
-    const result = await runSync(supabase, { overrideDate });
+    const result = await runSync(supabase);
     if (result.kind === "skipped") {
       await supabase
         .from("sync_log")
@@ -80,12 +81,8 @@ async function main() {
   }
 }
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
-
 async function runSyncPeek(
   supabase: SupabaseClient<Database>,
-  overrideDate: string | undefined,
 ): Promise<{ kind: "skipped"; reason: string } | { kind: "go" }> {
   const now = new Date();
   const imminentCutoff = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
@@ -98,7 +95,7 @@ async function runSyncPeek(
   if (!relevant || relevant.length === 0) {
     return {
       kind: "skipped",
-      reason: `no live or imminent matches${overrideDate ? ` for ${overrideDate}` : ""}`,
+      reason: "no live or imminent matches",
     };
   }
   return { kind: "go" };
