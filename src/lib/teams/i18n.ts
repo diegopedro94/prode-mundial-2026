@@ -38,7 +38,7 @@ const SPANISH_BY_FIFA: Record<string, string> = {
   PAN: "Panamá",
   PAR: "Paraguay",
   POR: "Portugal",
-  QAT: "Catar",
+  QAT: "Qatar",
   SAU: "Arabia Saudita",
   SCO: "Escocia",
   SEN: "Senegal",
