@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { MatchResultCard, type MatchRow } from "./match-result-card";
@@ -28,7 +30,14 @@ function localDateKey(iso: string): string {
   });
 }
 
-export default async function AdminMatchesPage() {
+export default async function AdminMatchesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ all?: string }>;
+}) {
+  const params = await searchParams;
+  const showAll = params.all === "1";
+
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("matches")
@@ -42,8 +51,14 @@ export default async function AdminMatchesPage() {
 
   const matches = (data ?? []) as unknown as DbMatch[];
 
+  // Hide finished by default so the admin lands on the work that's still
+  // open (the next matches to enter results / fix). The "Mostrar todos"
+  // link reveals the full history when needed.
+  const finishedCount = matches.filter((m) => m.status === "finished").length;
+  const visible = showAll ? matches : matches.filter((m) => m.status !== "finished");
+
   const byDate = new Map<string, DbMatch[]>();
-  for (const m of matches) {
+  for (const m of visible) {
     const key = localDateKey(m.scheduled_at);
     const arr = byDate.get(key) ?? [];
     arr.push(m);
@@ -62,9 +77,27 @@ export default async function AdminMatchesPage() {
         </p>
       </header>
 
+      {finishedCount > 0 ? (
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-xs">
+          <span className="text-muted-foreground">
+            {showAll
+              ? `Mostrando todos los partidos (${finishedCount} finalizados incluidos).`
+              : `${finishedCount} finalizado${finishedCount === 1 ? "" : "s"} oculto${finishedCount === 1 ? "" : "s"}.`}
+          </span>
+          <Link
+            href={showAll ? "/admin/matches" : "/admin/matches?all=1"}
+            className="rounded-md px-2 py-1 font-medium text-primary transition active:scale-[0.96] hover:bg-muted"
+          >
+            {showAll ? "Ocultar finalizados" : "Mostrar todos"}
+          </Link>
+        </div>
+      ) : null}
+
       {byDate.size === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-8 text-center text-sm text-muted-foreground">
-          No hay partidos cargados todavía.
+          {finishedCount > 0
+            ? "Todos los partidos restantes ya terminaron. Tocá \"Mostrar todos\" para verlos."
+            : "No hay partidos cargados todavía."}
         </div>
       ) : null}
 
