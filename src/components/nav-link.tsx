@@ -9,6 +9,10 @@ type Props = {
   /** Treat as active when the current path starts with `href`. Useful for
    *  hub routes (e.g. `/predict` should stay active on `/predict/groups`). */
   matchSubpaths?: boolean;
+  /** Extra exact paths that should count as "active" for this link — useful
+   *  when one nav entry represents a set of unrelated routes (e.g. an
+   *  "Eliminatorias" tab covering /predict/r32, /predict/r16, …). */
+  matchPaths?: string[];
   /** Visual size: "default" for the primary app nav, "sm" for secondary
    *  sub-nav bars (e.g. admin breadcrumbs). */
   size?: "default" | "sm";
@@ -21,13 +25,14 @@ export function NavLink({
   href,
   children,
   matchSubpaths,
+  matchPaths,
   size = "default",
   highlight,
 }: Props) {
   const pathname = usePathname() ?? "";
   const isActive = matchSubpaths
     ? pathname === href || pathname.startsWith(`${href}/`)
-    : pathname === href;
+    : pathname === href || (matchPaths ?? []).includes(pathname);
 
   const base =
     size === "sm"
