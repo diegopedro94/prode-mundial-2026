@@ -47,6 +47,8 @@ export default async function AdminMatchesPage({
        home_team:home_team_id(id, name, fifa_code, flag_url),
        away_team:away_team_id(id, name, fifa_code, flag_url)`,
     )
+    .not("home_team_id", "is", null)
+    .not("away_team_id", "is", null)
     .order("scheduled_at");
 
   const matches = (data ?? []) as unknown as DbMatch[];
