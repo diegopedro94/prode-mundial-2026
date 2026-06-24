@@ -53,7 +53,7 @@ export default async function AppLayout({
                 className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground shadow-sm shadow-primary/20 transition active:scale-[0.96] hover:bg-primary/90"
               >
                 <Shield className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Admin</span>
+                <span>Admin</span>
               </Link>
             ) : null}
             <form action="/auth/sign-out" method="post">
