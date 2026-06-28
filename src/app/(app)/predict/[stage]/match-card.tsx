@@ -183,14 +183,14 @@ function PkPicker({
         disabled={disabled}
         onClick={() => onChange(homeTeam.id)}
         label={homeLabel}
-        fifaCode={homeTeam.fifa_code}
+        flagUrl={homeTeam.flag_url}
       />
       <PkButton
         active={value === awayTeam.id}
         disabled={disabled}
         onClick={() => onChange(awayTeam.id)}
         label={awayLabel}
-        fifaCode={awayTeam.fifa_code}
+        flagUrl={awayTeam.flag_url}
       />
     </div>
   );
@@ -201,13 +201,13 @@ function PkButton({
   disabled,
   onClick,
   label,
-  fifaCode,
+  flagUrl,
 }: {
   active: boolean;
   disabled: boolean;
   onClick: () => void;
   label: string;
-  fifaCode: string;
+  flagUrl: string | null;
 }) {
   return (
     <button
@@ -220,9 +220,19 @@ function PkButton({
           : "border-border bg-background hover:border-primary/40 hover:bg-muted"
       }`}
     >
-      <span className="font-mono text-[10px] uppercase tracking-wider opacity-80">
-        {fifaCode}
-      </span>
+      {flagUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={flagUrl}
+          alt=""
+          className="h-3.5 w-5 rounded-[2px] object-cover ring-1 ring-foreground/10"
+          width={20}
+          height={14}
+          loading="lazy"
+        />
+      ) : (
+        <span className="h-3.5 w-5 rounded-[2px] bg-muted" aria-hidden="true" />
+      )}
       <span>{label}</span>
     </button>
   );
