@@ -63,8 +63,12 @@ export function KnockoutMatchCard({
   useEffect(() => {
     if (isLocked || bracketPending) return;
     if (!isValidScore(home) || !isValidScore(away)) return;
+    // PK winner is mandatory on knockouts: don't persist a half-finished
+    // prediction. The card surfaces a "falta elegir ganador en penales" hint
+    // so the user knows why nothing has saved yet.
+    if (pkWinner == null) return;
 
-    const key = `${home}-${away}|${pkWinner ?? "-"}`;
+    const key = `${home}-${away}|${pkWinner}`;
     if (key === lastSaved.current) return;
 
     if (timer.current) clearTimeout(timer.current);
@@ -100,6 +104,7 @@ export function KnockoutMatchCard({
   );
   const matchStarted = when === "live" || when === "past";
   const inputsValid = isValidScore(home) && isValidScore(away);
+  const needsPkPick = inputsValid && pkWinner == null && !bracketPending && !isLocked;
   const displayStatus: SaveStatus = inputsValid ? status : "idle";
 
   return (
@@ -114,6 +119,11 @@ export function KnockoutMatchCard({
           <span className="inline-flex items-center gap-1 text-muted-foreground/70">
             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
             pendiente del cruce
+          </span>
+        ) : needsPkPick ? (
+          <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+            falta ganador en penales
           </span>
         ) : (
           <StatusBadge status={displayStatus} matchStarted={matchStarted} error={error} />
