@@ -184,10 +184,7 @@ function PkPicker({
   const awayLabel = teamName(awayTeam.fifa_code, awayTeam.name);
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-muted/20 px-3 py-2 text-xs">
-      <span className="font-medium text-muted-foreground">
-        Si va a penales gana:
-        <span className="ml-1 text-muted-foreground/70">(+1 si adivinás)</span>
-      </span>
+      <span className="font-medium text-muted-foreground">Penales:</span>
       <PkButton
         active={value === homeTeam.id}
         disabled={disabled}
