@@ -36,6 +36,18 @@ export default async function Home() {
     liveCount = count ?? 0;
   }
 
+  // "Cargar prode" should jump to whatever stage is currently editable, so
+  // mid-tournament users don't land on the locked group page. Pick the
+  // earliest round whose lock hasn't fired yet.
+  const { data: openRound } = await supabase
+    .from("rounds")
+    .select("stage, locks_at")
+    .gt("locks_at", now.toISOString())
+    .order("locks_at")
+    .limit(1)
+    .maybeSingle<{ stage: string; locks_at: string }>();
+  const predictHref = openRound ? stageHref(openRound.stage) : "/predict/groups";
+
   return (
     <main className="relative flex flex-1 flex-col">
       {/* Hero image + dark overlay. The gradient does most of the work; the
@@ -120,7 +132,7 @@ export default async function Home() {
           {user ? (
             <>
               <Link
-                href="/predict/groups"
+                href={predictHref}
                 className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-emerald-950 shadow-lg shadow-emerald-500/30 transition active:scale-[0.97] hover:bg-emerald-400"
               >
                 Cargar prode
@@ -166,6 +178,23 @@ export default async function Home() {
       </div>
     </main>
   );
+}
+
+function stageHref(stage: string): string {
+  switch (stage) {
+    case "group":
+      return "/predict/groups";
+    case "r32":
+    case "r16":
+    case "qf":
+    case "sf":
+    case "final":
+      return `/predict/${stage}`;
+    case "third_place":
+      return "/predict/third";
+    default:
+      return "/predict/groups";
+  }
 }
 
 function Feature({ title, description }: { title: string; description: string }) {
