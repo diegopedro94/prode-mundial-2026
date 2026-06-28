@@ -95,7 +95,7 @@ export function KnockoutBoard({ stageLabel, matches, isLocked, lockAt }: Props) 
           </div>
         ) : lockAt ? (
           <p className="text-xs text-muted-foreground">
-            Lock al kickoff del 1er partido —{" "}
+            Cierre de la ronda —{" "}
             <span className="font-medium text-foreground">
               {new Date(lockAt).toLocaleString("es-AR", {
                 timeZone: "America/Argentina/Buenos_Aires",
@@ -105,6 +105,7 @@ export function KnockoutBoard({ stageLabel, matches, isLocked, lockAt }: Props) 
                 minute: "2-digit",
               })}
             </span>
+            . Cada partido se cierra a su propio kickoff si llega antes.
           </p>
         ) : null}
 
