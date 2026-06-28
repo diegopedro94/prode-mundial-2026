@@ -78,8 +78,9 @@ export function KnockoutBoard({ stageLabel, matches, isLocked, lockAt }: Props) 
               {stageLabel}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Score exacto 4, ganador 2. Empate al final del tiempo regular se
-              decide en penales (+1 si la clavás).
+              Score exacto 4, ganador 2. Siempre elegí quién ganaría por
+              penales — si el partido va al shootout y adivinás al ganador,
+              +1.
             </p>
           </div>
           <div className="rounded-full border border-border bg-card px-3 py-1.5 text-sm shadow-sm">

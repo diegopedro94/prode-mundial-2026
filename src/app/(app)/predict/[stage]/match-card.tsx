@@ -58,19 +58,11 @@ export function KnockoutMatchCard({
       : "",
   );
 
-  const tied = isValidScore(home) && isValidScore(away) && Number(home) === Number(away);
-
-  // pkWinner state is only consulted when `tied` is true (see autosave below),
-  // so we deliberately don't reset it when the user moves away from a tie.
-  // Preserving the value means a fluid go-tied → untied → re-tied sequence
-  // doesn't lose their pick.
-
   const bracketPending = homeTeam == null || awayTeam == null;
 
   useEffect(() => {
     if (isLocked || bracketPending) return;
     if (!isValidScore(home) || !isValidScore(away)) return;
-    if (tied && pkWinner == null) return; // hold autosave until they pick a PK winner
 
     const key = `${home}-${away}|${pkWinner ?? "-"}`;
     if (key === lastSaved.current) return;
@@ -83,7 +75,9 @@ export function KnockoutMatchCard({
         matchId: id,
         homeScore: Number(home),
         awayScore: Number(away),
-        pkWinnerTeamId: tied ? pkWinner : null,
+        // Always send the PK pick. The scoring trigger only credits +1 if the
+        // actual match goes to penalties, so it's a free hedge for the user.
+        pkWinnerTeamId: pkWinner,
       });
       if (result.ok) {
         lastSaved.current = key;
@@ -98,7 +92,7 @@ export function KnockoutMatchCard({
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [home, away, pkWinner, tied, id, isLocked, bracketPending, onSaved]);
+  }, [home, away, pkWinner, id, isLocked, bracketPending, onSaved]);
 
   const { dateLabel, timeLabel, when } = useMemo(
     () => formatKickoff(scheduledAt),
@@ -150,7 +144,7 @@ export function KnockoutMatchCard({
         <TeamSide team={awayTeam} side="away" />
       </div>
 
-      {tied && !bracketPending ? (
+      {!bracketPending ? (
         <PkPicker
           homeTeam={homeTeam!}
           awayTeam={awayTeam!}
@@ -180,7 +174,10 @@ function PkPicker({
   const awayLabel = teamName(awayTeam.fifa_code, awayTeam.name);
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-muted/20 px-3 py-2 text-xs">
-      <span className="font-medium text-muted-foreground">Empate · gana en penales:</span>
+      <span className="font-medium text-muted-foreground">
+        Si va a penales gana:
+        <span className="ml-1 text-muted-foreground/70">(+1 si adivinás)</span>
+      </span>
       <PkButton
         active={value === homeTeam.id}
         disabled={disabled}
@@ -195,11 +192,6 @@ function PkPicker({
         label={awayLabel}
         fifaCode={awayTeam.fifa_code}
       />
-      {value == null ? (
-        <span className="text-amber-700 dark:text-amber-300">
-          (elegí uno para guardar)
-        </span>
-      ) : null}
     </div>
   );
 }
