@@ -68,11 +68,24 @@ export function parseApiFixture(
 
   const wentToPenalties = apiStatus === "PEN";
 
-  // Score: prefer fulltime if available, else fall back to live goals.
-  let homeScore: number | null = fixture.goals.home;
-  let awayScore: number | null = fixture.goals.away;
-  if (fixture.score.fulltime.home != null) homeScore = fixture.score.fulltime.home;
-  if (fixture.score.fulltime.away != null) awayScore = fixture.score.fulltime.away;
+  // Which score to persist:
+  //   * PEN → regulation only (fulltime). Extra time + shootout are decided
+  //     outside the score line; the +1 PK bonus and the pk_winner column
+  //     capture the rest.
+  //   * Anything else finished (FT, AET, AWD, WO) → api-football's `goals`
+  //     field, which is end-of-play. For AET this correctly includes extra-
+  //     time goals; using fulltime here would drop them (was the BEL-SEN
+  //     3-2 → stored as 2-2 bug).
+  //   * Live → `goals` running total.
+  let homeScore: number | null;
+  let awayScore: number | null;
+  if (wentToPenalties) {
+    homeScore = fixture.score.fulltime.home ?? fixture.goals.home;
+    awayScore = fixture.score.fulltime.away ?? fixture.goals.away;
+  } else {
+    homeScore = fixture.goals.home;
+    awayScore = fixture.goals.away;
+  }
 
   // For finished matches, both scores have to be present. If api-football is
   // serving incomplete data (rare but observed mid-edit), skip; we'll catch
