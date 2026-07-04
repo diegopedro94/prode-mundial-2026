@@ -10,6 +10,9 @@ type Team = { id: number; name: string; fifa_code: string; flag_url: string | nu
 export type KnockoutMatchSeed = {
   id: number;
   scheduledAt: string;
+  /** Effective lock (per-match override if set, else round-level). Nullable
+   *  in the corner case where no round is configured yet. */
+  lockAt: string | null;
   homeTeam: Team | null;
   awayTeam: Team | null;
   prediction: {
@@ -20,6 +23,8 @@ export type KnockoutMatchSeed = {
 };
 
 type Props = KnockoutMatchSeed & {
+  /** Round-level lock — kept for the "this whole stage is closed" banner
+   *  even after the per-match override lands. */
   isLocked: boolean;
   onSaved?: (filled: boolean) => void;
 };
@@ -37,10 +42,11 @@ function isValidScore(value: string): boolean {
 export function KnockoutMatchCard({
   id,
   scheduledAt,
+  lockAt,
   homeTeam,
   awayTeam,
   prediction,
-  isLocked,
+  isLocked: roundLocked,
   onSaved,
 }: Props) {
   const [home, setHome] = useState(prediction?.home_score?.toString() ?? "");
@@ -59,6 +65,17 @@ export function KnockoutMatchCard({
   );
 
   const bracketPending = homeTeam == null || awayTeam == null;
+
+  const { dateLabel, timeLabel, when, matchLockLabel } = useMemo(
+    () => formatKickoff(scheduledAt, lockAt),
+    [scheduledAt, lockAt],
+  );
+  const matchStarted = when === "live" || when === "past";
+  const matchLocked =
+    roundLocked ||
+    matchStarted ||
+    (lockAt != null && new Date(lockAt) <= new Date());
+  const isLocked = matchLocked;
 
   useEffect(() => {
     if (isLocked || bracketPending) return;
@@ -98,11 +115,6 @@ export function KnockoutMatchCard({
     };
   }, [home, away, pkWinner, id, isLocked, bracketPending, onSaved]);
 
-  const { dateLabel, timeLabel, when } = useMemo(
-    () => formatKickoff(scheduledAt),
-    [scheduledAt],
-  );
-  const matchStarted = when === "live" || when === "past";
   const inputsValid = isValidScore(home) && isValidScore(away);
   const needsPkPick = inputsValid && pkWinner == null && !bracketPending && !isLocked;
   const displayStatus: SaveStatus = inputsValid ? status : "idle";
@@ -114,6 +126,12 @@ export function KnockoutMatchCard({
           <span className="capitalize">{dateLabel}</span>
           <span aria-hidden="true">·</span>
           <span className="tabular-nums">{timeLabel}</span>
+          {matchLockLabel ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="text-amber-600 dark:text-amber-400">{matchLockLabel}</span>
+            </>
+          ) : null}
         </div>
         {bracketPending ? (
           <span className="inline-flex items-center gap-1 text-muted-foreground/70">
@@ -368,7 +386,7 @@ function StatusBadge({
   );
 }
 
-function formatKickoff(iso: string) {
+function formatKickoff(iso: string, lockIso: string | null) {
   const date = new Date(iso);
   const dateLabel = date.toLocaleDateString("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",
@@ -381,10 +399,27 @@ function formatKickoff(iso: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
-  const now = Date.now();
+  const now = new Date();
   const start = date.getTime();
   let when: "future" | "live" | "past" = "future";
-  if (start <= now && start + 2 * 60 * 60 * 1000 >= now) when = "live";
-  else if (start < now) when = "past";
-  return { dateLabel, timeLabel, when };
+  if (start <= now.getTime() && start + 2 * 60 * 60 * 1000 >= now.getTime()) when = "live";
+  else if (start < now.getTime()) when = "past";
+
+  // Surface a per-match lock hint only when it's earlier than the kickoff
+  // (i.e. the match explicitly locks in advance — e.g. the Sat-early R16
+  // pair). If lockIso equals or postdates kickoff it's uninteresting; the
+  // "cerrado" badge covers post-kickoff already.
+  let matchLockLabel: string | null = null;
+  if (lockIso) {
+    const lock = new Date(lockIso);
+    if (lock.getTime() < start && lock.getTime() > now.getTime()) {
+      matchLockLabel = `cierra ${lock.toLocaleString("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    }
+  }
+  return { dateLabel, timeLabel, when, matchLockLabel };
 }

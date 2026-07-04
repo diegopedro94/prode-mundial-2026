@@ -28,6 +28,7 @@ const STAGE_LABEL: Record<DbStage, string> = {
 type MatchRow = {
   id: number;
   scheduled_at: string;
+  locks_at: string | null;
   home_team: { id: number; name: string; fifa_code: string; flag_url: string | null } | null;
   away_team: { id: number; name: string; fifa_code: string; flag_url: string | null } | null;
 };
@@ -60,7 +61,7 @@ export default async function PredictStagePage({
     supabase
       .from("matches")
       .select(
-        `id, scheduled_at,
+        `id, scheduled_at, locks_at,
          home_team:home_team_id(id, name, fifa_code, flag_url),
          away_team:away_team_id(id, name, fifa_code, flag_url)`,
       )
@@ -79,8 +80,9 @@ export default async function PredictStagePage({
 
   const matches = (matchesRes.data ?? []) as unknown as MatchRow[];
   const predictions = (predictionsRes.data ?? []) as PredictionRow[];
-  const lockAt = roundRes.data?.locks_at ?? null;
-  const isLocked = lockAt ? new Date(lockAt) <= new Date() : false;
+  const roundLockAt = roundRes.data?.locks_at ?? null;
+  const now = new Date();
+  const isLocked = roundLockAt ? new Date(roundLockAt) <= now : false;
 
   const predictionByMatch = new Map(predictions.map((p) => [p.match_id, p]));
 
@@ -90,12 +92,15 @@ export default async function PredictStagePage({
       matches={matches.map((m) => ({
         id: m.id,
         scheduledAt: m.scheduled_at,
+        // Effective lock is match.locks_at when set, otherwise the round's.
+        // Kickoff acts as a secondary hard stop even when the lock is later.
+        lockAt: m.locks_at ?? roundLockAt,
         homeTeam: m.home_team,
         awayTeam: m.away_team,
         prediction: predictionByMatch.get(m.id) ?? null,
       }))}
       isLocked={isLocked}
-      lockAt={lockAt}
+      lockAt={roundLockAt}
     />
   );
 }
