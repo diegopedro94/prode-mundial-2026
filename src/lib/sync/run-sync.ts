@@ -10,6 +10,7 @@ import {
   loadTeamExternalIndex,
   syncGoalsForFixture,
 } from "@/lib/sync/goals";
+import { runBracketImport } from "@/lib/sync/import-bracket";
 
 type ApiFixture = ApiFixturePayload & {
   fixture: ApiFixturePayload["fixture"] & { date: string };
@@ -25,6 +26,7 @@ export type RunSyncResult =
       fixturesProcessed: number;
       fixturesUpdated: number;
       goalsUpserted: number;
+      bracketSlotsUpdated: number;
       requestsRemaining: number | null;
     };
 
@@ -98,11 +100,43 @@ export async function runSync(
   if (probeError) {
     throw new Error(`DB probe failed: ${probeError.message}`);
   }
-  if (!relevant || relevant.length === 0) {
-    return { kind: "skipped", reason: "no live or imminent matches" };
+
+  const hasLiveOrImminent = (relevant?.length ?? 0) > 0;
+
+  // Even without a live/imminent match, we still want to run the bracket
+  // import when there are TBD slots ahead — that's how the next round
+  // populates dynamically as api-football publishes new fixtures. The
+  // bracket importer has its own DB probe and short-circuits when nothing
+  // is missing, so calling it always is cheap.
+  let bracketSlotsUpdated = 0;
+  let bracketResult: Awaited<ReturnType<typeof runBracketImport>>;
+  try {
+    bracketResult = await runBracketImport(supabase);
+    if (bracketResult.kind === "success") {
+      bracketSlotsUpdated = bracketResult.updated;
+    }
+  } catch (err) {
+    // Log via caller (sync_log); don't fail the whole sync over a bracket
+    // hiccup — the live-match path is more important.
+    console.warn(
+      "bracket import failed:",
+      err instanceof Error ? err.message : err,
+    );
+    bracketResult = { kind: "skipped", reason: "bracket import errored" };
   }
 
-  const externalIds = relevant
+  if (!hasLiveOrImminent) {
+    return {
+      kind: "success",
+      fixturesProcessed: 0,
+      fixturesUpdated: 0,
+      goalsUpserted: 0,
+      bracketSlotsUpdated,
+      requestsRemaining: null,
+    };
+  }
+
+  const externalIds = relevant!
     .map((r) => r.external_id)
     .filter((x): x is number => typeof x === "number");
 
@@ -113,6 +147,7 @@ export async function runSync(
       fixturesProcessed: 0,
       fixturesUpdated: 0,
       goalsUpserted: 0,
+      bracketSlotsUpdated,
       requestsRemaining,
     };
   }
@@ -156,6 +191,7 @@ export async function runSync(
     fixturesProcessed: fixtures.length,
     fixturesUpdated: updated,
     goalsUpserted,
+    bracketSlotsUpdated,
     requestsRemaining,
   };
 }

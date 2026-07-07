@@ -64,7 +64,7 @@ async function main() {
       })
       .eq("id", syncLogId);
     console.log(
-      `Sync ok: ${result.fixturesUpdated}/${result.fixturesProcessed} updated, ${result.goalsUpserted} goals, ${result.requestsRemaining ?? "?"} reqs left.`,
+      `Sync ok: ${result.fixturesUpdated}/${result.fixturesProcessed} updated, ${result.goalsUpserted} goals, ${result.bracketSlotsUpdated} bracket slots filled, ${result.requestsRemaining ?? "?"} reqs left.`,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -86,16 +86,34 @@ async function runSyncPeek(
 ): Promise<{ kind: "skipped"; reason: string } | { kind: "go" }> {
   const now = new Date();
   const imminentCutoff = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
-  const { data: relevant, error } = await supabase
-    .from("matches")
-    .select("id")
-    .or(`status.eq.live,and(status.eq.scheduled,scheduled_at.lte.${imminentCutoff})`)
-    .limit(1);
-  if (error) throw new Error(`DB probe failed: ${error.message}`);
-  if (!relevant || relevant.length === 0) {
+  const monthAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Live/imminent match → we need to sync scores. Unfilled knockout slot
+  // within the next month → we need to run the bracket import so users can
+  // start predicting the next round the moment api-football publishes it.
+  const [liveProbe, bracketProbe] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("id")
+      .or(`status.eq.live,and(status.eq.scheduled,scheduled_at.lte.${imminentCutoff})`)
+      .limit(1),
+    supabase
+      .from("matches")
+      .select("id")
+      .neq("stage", "group")
+      .lt("scheduled_at", monthAhead)
+      .or("external_id.is.null,home_team_id.is.null,away_team_id.is.null")
+      .limit(1),
+  ]);
+  if (liveProbe.error) throw new Error(`DB probe failed: ${liveProbe.error.message}`);
+  if (bracketProbe.error) throw new Error(`DB probe failed: ${bracketProbe.error.message}`);
+
+  const hasLive = (liveProbe.data?.length ?? 0) > 0;
+  const hasBracketGap = (bracketProbe.data?.length ?? 0) > 0;
+  if (!hasLive && !hasBracketGap) {
     return {
       kind: "skipped",
-      reason: "no live or imminent matches",
+      reason: "no live/imminent matches and all knockout slots filled",
     };
   }
   return { kind: "go" };

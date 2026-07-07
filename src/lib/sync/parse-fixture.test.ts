@@ -74,13 +74,15 @@ describe("parseApiFixture", () => {
   });
 
   // ------------ Score resolution ------------
-  it("prefers score.fulltime over goals when both present", () => {
+  it("uses goals (end-of-play) for AET, not fulltime — regresses the BEL-SEN bug", () => {
+    // Real BEL-SEN scenario: 2-2 in regulation, 3-2 after extra time.
+    // Older code preferred fulltime, which dropped the extra-time goals.
     const r = parseApiFixture(
       fixture({
-        fixture: { id: 1, status: { short: "FT" } },
-        goals: { home: 0, away: 0 },
+        fixture: { id: 1, status: { short: "AET" } },
+        goals: { home: 3, away: 2 },
         score: {
-          fulltime: { home: 3, away: 1 },
+          fulltime: { home: 2, away: 2 },
           penalty: { home: null, away: null },
         },
         teams: {
@@ -94,7 +96,34 @@ describe("parseApiFixture", () => {
     expect(r.kind).toBe("update");
     if (r.kind === "update") {
       expect(r.update.home_score).toBe(3);
+      expect(r.update.away_score).toBe(2);
+    }
+  });
+
+  it("uses fulltime (regulation only) for PEN — shootout doesn't go on the score line", () => {
+    // GER-PAR scenario: 1-1 in regulation, Paraguay wins on penalties.
+    const r = parseApiFixture(
+      fixture({
+        fixture: { id: 1, status: { short: "PEN" } },
+        goals: { home: 1, away: 1 },
+        score: {
+          fulltime: { home: 1, away: 1 },
+          penalty: { home: 3, away: 5 },
+        },
+        teams: {
+          home: { id: 10, winner: false },
+          away: { id: 20, winner: true },
+        },
+      }),
+      HOME_INTERNAL,
+      AWAY_INTERNAL,
+    );
+    expect(r.kind).toBe("update");
+    if (r.kind === "update") {
+      expect(r.update.home_score).toBe(1);
       expect(r.update.away_score).toBe(1);
+      expect(r.update.went_to_penalties).toBe(true);
+      expect(r.update.pk_winner_team_id).toBe(AWAY_INTERNAL);
     }
   });
 
